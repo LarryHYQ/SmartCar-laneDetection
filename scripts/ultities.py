@@ -18,7 +18,7 @@ def rectangle(img, p1: Tuple[int], p2: Tuple[int], color: Tuple[int] = (0, 0, 25
     cv2.rectangle(img, tuple(v * zoom for v in p1), tuple(v * zoom for v in p2), color)
 
 
-class ShowImg:
+class ZoomedImg:
     def __init__(self, img: np.ndarray, name: str, zoom=6):
         tmp = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         self.img = cv2.resize(tmp, dsize=(0, 0), fx=zoom, fy=zoom, interpolation=cv2.INTER_NEAREST)

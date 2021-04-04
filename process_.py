@@ -1,7 +1,7 @@
-DIR = "D:\\CarImg\\"
-from ultities import *
-from transform import getPerMat, axisTransform, transfomImg
+from scripts.ultities import *
+from scripts.transform import getPerMat, axisTransform, transfomImg
 
+DIR = "D:\\CarImg\\"
 index = 381
 
 N, M = 80, 188  # 图片的高和宽
@@ -11,7 +11,7 @@ PADDING = 1  # 舍弃左右边界
 
 
 DeriThreshold = 60000
-SumThreshold = 50000
+SumThreshold = 30000
 
 
 N_ = 130  # 新图的高
@@ -40,8 +40,8 @@ perImg = np.zeros((N_, M_), "uint8")
 perMat = getPerMat(srcArr, perArr)
 perImg = transfomImg(origin, perMat, N, M, N_, M_, i_shift, j_shift)
 
-OriginShow = ShowImg(origin, "origin", 5)
-PerShow = ShowImg(perImg, "per", 4)
+OriginShow = ZoomedImg(origin, "origin", 5)
+PerShow = ZoomedImg(perImg, "per", 4)
 img = origin.tolist()
 
 
@@ -77,17 +77,18 @@ def getButtom():
 
 
 edges = [[-1] * (N // H) for _ in range(2)]
+valid = [[False] * (N // H) for _ in range(2)]
 
 
 def getEdge(LR: Tuple[int], draw: bool = True):
     for u in range(2):
         J = LR[u]
         dj = 0
-        print("t  j   dSum  Sum")
+        print(" t  j   dSum  Sum")
         for t, i in enumerate(range(N - H, -1, -H)):
             j = getConstrain(J + dj - (W >> 1))
             edges[u][t], s = rectEdge(i, j, u)
-            print("%1d %3d %6d %d" % (t, edges[u][t], s, rectSum(i, j)))
+            print("%2d %3d %6d %d" % (t, edges[u][t], s, rectSum(i, j)))
             if s < DeriThreshold:
                 edges[u][t] = -1
                 if draw:
@@ -124,7 +125,6 @@ for u in range(2):
     px = np.linspace(0, N_, N_)
     py = np.polyval(fit, px)
     PerShow.polylines(px, py, colors[u], i_shift=i_shift, j_shift=j_shift)
-    # cv2.polylines(PerShow.canva, [pts], False, (0, 0, 255))
 
 
 OriginShow.show()

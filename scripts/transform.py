@@ -1,4 +1,4 @@
-"图像的逆透视变换"
+"图像逆透视变换相关函数"
 from typing import List, Tuple
 import numpy as np
 import cv2
@@ -14,11 +14,7 @@ def getPerMat(fromPoints: List[Tuple[int]], toPoints: List[Tuple[int]]) -> List[
     Returns:
         List[float]: 生成的变换矩阵
     """
-    return (
-        cv2.getPerspectiveTransform(np.array(fromPoints, dtype="float32"), np.array(toPoints, dtype="float32"))
-        .astype("float32")
-        .flatten()
-    )
+    return cv2.getPerspectiveTransform(np.array(fromPoints, dtype="float32"), np.array(toPoints, dtype="float32")).astype("float32").flatten()
 
 
 def axisTransform(i: int, j: int, perMat: np.array) -> Tuple[float]:
@@ -32,17 +28,13 @@ def axisTransform(i: int, j: int, perMat: np.array) -> Tuple[float]:
     Returns:
         Tuple[float]: 以浮点数形式返回变换后的 (i, j)
     """
-
-    "使用变换矩阵映射坐标"
     a = i * perMat[0] + j * perMat[1] + perMat[2]
     b = i * perMat[3] + j * perMat[4] + perMat[5]
     c = i * perMat[6] + j * perMat[7] + perMat[8]
     return a / c, b / c
 
 
-def transfomImg(
-    src: np.ndarray, perMat: np.array, N: int, M: int, N_: int, M_: int, i_shift: int, j_shift: int
-) -> np.ndarray:
+def transfomImg(src: np.ndarray, perMat: np.array, N: int, M: int, N_: int, M_: int, i_shift: int, j_shift: int) -> np.ndarray:
     """使用变换矩阵对图像进行逆透视变换并返回变换后的图像
 
     Args:

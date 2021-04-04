@@ -1,4 +1,4 @@
-from scripts.ultities import *
+from scripts.ultility import *
 from scripts.transform import getPerMat, axisTransform, transfomImg
 
 DIR = "D:\\CarImg\\"
@@ -40,8 +40,8 @@ perImg = np.zeros((N_, M_), "uint8")
 perMat = getPerMat(srcArr, perArr)
 perImg = transfomImg(origin, perMat, N, M, N_, M_, i_shift, j_shift)
 
-OriginShow = ZoomedImg(origin, "origin", 5)
-PerShow = ZoomedImg(perImg, "per", 4)
+OriginShow = ZoomedImg(origin, 5, "origin")
+PerShow = ZoomedImg(perImg, 4, "per")
 img = origin.tolist()
 
 
@@ -71,8 +71,8 @@ colors = ((255, 255, 0), (0, 0, 255), (0, 255, 0), (255, 0, 255))
 def getButtom():
     l, s = rectEdge(N - H * 2, PADDING, False, H * 2, M // 2 - PADDING * 2)
     r, s = rectEdge(N - H * 2, M // 2, True, H * 2, M // 2 - PADDING * 2)
-    OriginShow.plot((N - H, l), colors[3])
-    OriginShow.plot((N - H, r), colors[2])
+    OriginShow.point((N - H, l), colors[3])
+    OriginShow.point((N - H, r), colors[2])
     return l, r
 
 
@@ -105,7 +105,7 @@ def getEdge(LR: Tuple[int], draw: bool = True):
                     J = edges[u][t]
                 if draw:
                     OriginShow.rectangle((i, j), (i + H, j + W), colors[u])
-                    OriginShow.plot((i + (H >> 1), edges[u][t]), colors[u ^ 1])
+                    OriginShow.point((i + (H >> 1), edges[u][t]), colors[u ^ 1])
         print()
 
 
@@ -118,7 +118,7 @@ for u in range(2):
     for t, i in enumerate(range(N - (H >> 1), -1, -H)):
         if edges[u][t] != -1:
             i_, j_ = map(round, axisTransform(i, edges[u][t], perMat))
-            PerShow.plot((i_ + i_shift, j_ + j_shift), colors[u ^ 1])
+            PerShow.point((i_ + i_shift, j_ + j_shift), colors[u ^ 1])
             x.append(i_)
             y.append(j_)
     fit = np.polyfit(x, y, 2)

@@ -45,8 +45,8 @@ perImg = np.zeros((N_, M_), "uint8")
 perMat = getPerMat(srcArr, perArr)
 perImg = transfomImg(origin, perMat, N, M, N_, M_, i_shift, j_shift)
 
-OriginShow = ZoomedImg(origin, 5, "origin")
-PerShow = ZoomedImg(perImg, 4, "per")
+OriginShow = ZoomedImg(origin, 5)
+PerShow = ZoomedImg(perImg, 4)
 img = origin.tolist()
 
 
@@ -132,7 +132,7 @@ for u in range(2):
     PerShow.polylines(px, py, colors[u], i_shift=i_shift, j_shift=j_shift)
 
 
-OriginShow.show()
-PerShow.show()
+OriginShow.show("origin")
+PerShow.show("perspective")
 
 cv2.waitKey(0)

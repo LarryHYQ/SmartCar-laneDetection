@@ -8,16 +8,14 @@ from copy import deepcopy
 class ZoomedImg:
     "指定缩放的图片帮助类"
 
-    def __init__(self, img: np.ndarray, zoom: int, name: str):
+    def __init__(self, img: np.ndarray, zoom: int):
         """指定缩放的图片帮助类
 
         Args:
             img (np.ndarray): 原图矩阵，需要先使用cv2.imread(xxx, 0)读入
-            name (str): 窗口的标题
             zoom (int): 缩放倍数
         """
         self.img = cv2.resize(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR), dsize=(0, 0), fx=zoom, fy=zoom, interpolation=cv2.INTER_NEAREST)
-        self.name = name
         self.clear()
         self.zoom = zoom
 
@@ -63,8 +61,9 @@ class ZoomedImg:
         pts = (np.asarray([pj + j_shift, pi + i_shift]).T).astype("int32")
         cv2.polylines(self.canvas, [pts * self.zoom], closed, color, thickness)
 
-    def show(self):
-        cv2.imshow(self.name, self.canvas)
+    def show(self, name: str):
+        "显示图像"
+        cv2.imshow(name, self.canvas)
 
 
 __all__ = ["ZoomedImg"]

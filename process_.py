@@ -1,4 +1,9 @@
-from scripts.ultility import *
+from typing import List, Tuple
+import numpy as np
+import cv2
+
+
+from scripts.utility import *
 from scripts.transform import getPerMat, axisTransform, transfomImg
 
 DIR = "D:\\CarImg\\"

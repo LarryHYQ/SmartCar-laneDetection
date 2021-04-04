@@ -1,7 +1,6 @@
 "一些杂项工具"
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
 from typing import Tuple, List
 from copy import deepcopy
 
@@ -66,3 +65,7 @@ class ZoomedImg:
 
     def show(self):
         cv2.imshow(self.name, self.canvas)
+
+
+__all__ = ["ZoomedImg"]
+

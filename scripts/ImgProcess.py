@@ -8,7 +8,14 @@ colors = ((255, 255, 0), (0, 0, 255), (0, 255, 0), (255, 0, 255))
 
 
 class ImgProcess:
+    "图像处理类"
+
     def __init__(self, Config: dict) -> None:
+        """图像处理类
+
+        Args:
+            Config (dict): 通过 getConfig() 获取的配置
+        """
         self.Config = Config
         self.edges = []
         self.valid = []
@@ -97,7 +104,8 @@ class ImgProcess:
                         self.OriginShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
             print()
 
-    def fitLine(self):
+    def fitLine(self) -> List[np.array]:
+        res = []
         for u in range(2):
             x, y = [], []
             for t, i in enumerate(range(self.N - (self.H >> 1), -1, -self.H)):
@@ -106,15 +114,16 @@ class ImgProcess:
                     self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])
                     x.append(i_)
                     y.append(j_)
-            fit = np.polyfit(x, y, 2)
+            res.append(np.polyfit(x, y, 2))
             px = np.linspace(0, self.N_, self.N_)
-            py = np.polyval(fit, px)
+            py = np.polyval(res[-1], px)
             self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+        return res
 
     def work(self):
         self.applyConfig()
         self.getEdge(self.getButtom())
-        self.fitLine()
+        print(self.fitLine())
 
     def show(self):
         self.OriginShow.show("origin")

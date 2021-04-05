@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from collections import deque
 from typing import List, Tuple
 from .utility.ZoomedImg import ZoomedImg
 from .transform import getPerMat, axisTransform, transfomImg
@@ -87,38 +88,26 @@ class ImgProcess:
         n = S = 0
         for u in range(2):
             cur = [0, LR[u]]
-            J = LR[u]
-            dj = 0
+            Y = deque(maxlen=4)
+            X = deque(maxlen=4)
             print()
             print(" t  j   dSum   Sum")
             for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
-                # if not self.firstFrame and not (t > 2 and self.valid[u][t - 1] and abs(self.edges[u][t] - self.edges[u][t - 1]) < 40):
-                #     j = self.getConstrain(self.edges[u][t] - (self.W >> 1))
-                #     self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
-                # else:
-                #     dSum = 0
-
-                # if self.firstFrame or dSum < self.DERI_THRESHOLD:
-                #     j = self.getConstrain(J + dj - (self.W >> 1))
-                #     self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
-                j = self.getConstrain(J + dj - (self.W >> 1))
+                j = self.getConstrain(round(np.polyval(cur, i) - (self.W >> 1)))
                 self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
 
                 print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
                 if dSum < self.DERI_THRESHOLD:
                     self.valid[u][t] = False
                     self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
-                    J += dj
                 else:
+                    X.append(i)
+                    Y.append(self.edges[u][t])
+                    if len(X) > 1:
+                        cur = np.polyfit(X, Y, 1)
                     self.valid[u][t] = True
                     S += self.sum[u][t]
                     n += 1
-                    if t == 1:
-                        dj = self.edges[u][1] - self.edges[u][0]
-                        J = self.edges[u][1]
-                    elif t > 1:
-                        dj = self.edges[u][t] - J if self.valid[u][t - 1] else 0
-                    J = self.edges[u][t]
 
                     self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
                     self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
@@ -143,7 +132,7 @@ class ImgProcess:
                     self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])
                     x.append(i_)
                     y.append(j_)
-            if len(x) > 2:
+            if len(x) > 3:
                 self.res[u] = np.polyfit(x, y, 2)
                 px = list(range(self.N_))
                 py = np.polyval(self.res[u], px)

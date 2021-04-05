@@ -1,10 +1,10 @@
 # ImgProcess
 N, M = 80, 188  # 图片的高和宽
 CUT = 20  # 裁剪最上面的多少行
-SRCZOOM = 5
+SRCZOOM = 5  # 原图放大倍数
 
 NOISE = 5  # 灰度梯度最小有效值
-H, W = 4, 35  # 框框的高和宽
+H, W = 5, 40  # 框框的高和宽
 PADDING = 1  # 舍弃左右边界的大小
 DERI_THRESHOLD = 50000  # 小框内灰度梯度总和最小有效值
 SUM_THRESHOLD = 30000  # 小框内灰度总和最小有效值
@@ -12,7 +12,7 @@ SUM_THRESHOLD = 30000  # 小框内灰度总和最小有效值
 N_, M_ = 130, 235  # 新图的高和宽
 I_SHIFT = 1  # 新图向下平移
 J_SHIFT = 20  # 新图向右平移
-PERZOOM = 4
+PERZOOM = 4  # 新图放大倍数
 
 SRCARR = [  # 原图上的四个点
     (0, 49),  # 左上角

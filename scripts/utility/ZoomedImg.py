@@ -15,7 +15,7 @@ class ZoomedImg:
             img (np.ndarray): 原图矩阵，需要先使用cv2.imread(xxx, 0)读入
             zoom (int): 缩放倍数
         """
-        self.img = cv2.resize(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR), dsize=(0, 0), fx=zoom, fy=zoom, interpolation=cv2.INTER_NEAREST)
+        self.img = cv2.resize(cv2.cvtColor(img, cv2.COLOR_GRAY2RGB), dsize=(0, 0), fx=zoom, fy=zoom, interpolation=cv2.INTER_NEAREST)
         self.clear()
         self.zoom = zoom
 

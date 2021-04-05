@@ -8,7 +8,7 @@ if __name__ == "__main__":
     Config = getConfig(dir)
     imgProcess = ImgProcess(Config["IMGPROCESS"])
 
-    dir = "img\\1.png"
+    dir = "img\\5.png"
     img = cv2.imread(dir, 0)
     imgProcess.setImg(img)
     imgProcess.work()

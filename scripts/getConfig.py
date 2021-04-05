@@ -16,6 +16,7 @@ def getConfig(dir):
     IMGPROCESS = Config["IMGPROCESS"]
     IMGPROCESS["N"] = int(IMGPROCESS["N"]) if "N" in IMGPROCESS else N
     IMGPROCESS["M"] = int(IMGPROCESS["M"]) if "M" in IMGPROCESS else M
+    IMGPROCESS["CUT"] = int(IMGPROCESS["CUT"]) if "CUT" in IMGPROCESS else CUT
     IMGPROCESS["NOISE"] = int(IMGPROCESS["NOISE"]) if "NOISE" in IMGPROCESS else NOISE
     IMGPROCESS["H"] = int(IMGPROCESS["H"]) if "H" in IMGPROCESS else H
     IMGPROCESS["W"] = int(IMGPROCESS["W"]) if "W" in IMGPROCESS else W

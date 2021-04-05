@@ -22,13 +22,14 @@ class ImgProcess:
         self.applyConfig()
 
     def setImg(self, img: np.ndarray) -> None:
-        img = cv2.resize(img[20:, :], (self.M, self.N))
+        img = cv2.resize(img[self.CUT :, :], (self.M, self.N))
         self.img = img.tolist()
         self.OriginShow = ZoomedImg(img, 5)
         self.PerShow = ZoomedImg(transfomImg(img, self.PERMAT, self.N, self.M, self.N_, self.M_, self.I_SHIFT, self.J_SHIFT), 4)
 
     def applyConfig(self) -> None:
         self.N, self.M = self.Config["N"], self.Config["M"]  # 图片的高和宽
+        self.CUT = self.Config["CUT"]  # 裁剪最上面的多少行
         self.NOISE = self.Config["NOISE"]  # 灰度梯度最小有效值
         self.H, self.W = self.Config["H"], self.Config["W"]  # 框框的高和宽
         self.PADDING = self.Config["PADDING"]  # 舍弃左右边界的大小

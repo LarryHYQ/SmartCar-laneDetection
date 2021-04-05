@@ -9,6 +9,7 @@ class Main:
         self.setProperty()
         self.readDir()
         self.imgWindow = ImgWindow(self)
+        self.applyImg()
         self.mainloop = self.root.mainloop
 
     def setProperty(self) -> None:
@@ -20,8 +21,7 @@ class Main:
 
         self.names = listdir(self.Config["IMGDIR"])
         self.names.sort(key=lambda s: ("".join(filter(str.isalpha, s)), int("".join(filter(str.isdigit, s)))))
-        if self.Config["INDEX"] >= len(self.names):
-            self.Config["INDEX"] = 0
+        self.Config["INDEX"] = max(0, min(self.Config["INDEX"], len(self.names) - 1))
 
     def applyImg(self):
         from cv2 import imread

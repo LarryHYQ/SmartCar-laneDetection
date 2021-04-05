@@ -51,27 +51,25 @@ class ImgProcess:
         return min(max(j, self.PADDING), self.M - self.W - self.PADDING)
 
     def rectEdge(self, I: int, J: int, right: bool, H: int, W: int) -> int:
-        Sum, Pos = 1, 0
+        Pos, dSum, Sum = 0, 1, 0
         for i in range(I, I + H):
             for j in range(J + 1, J + W - 1):
+                Sum += self.img[i][j]
                 cur = self.img[i][j + 1] - self.img[i][j - 1]
                 if right:
                     cur = -cur
                 if cur > self.NOISE:
                     cur *= cur
                     Pos += cur * j
-                    Sum += cur
-        return Pos // Sum, Sum
-
-    def rectSum(self, I: int, J: int) -> int:
-        return sum(sum(self.img[i][j] for j in range(J, J + self.W)) for i in range(I, I + self.H))
+                    dSum += cur
+        return Pos // dSum, dSum, Sum
 
     def getButtom(self, draw: bool = True) -> Tuple[int]:
-        l, s = self.rectEdge(self.N - self.H * 2, self.PADDING, False, self.H * 2, self.M // 2 - self.PADDING * 2)
-        if s < self.DERI_THRESHOLD:
+        l, dSum, Sum = self.rectEdge(self.N - self.H * 2, self.PADDING, False, self.H * 2, self.M // 2 - self.PADDING * 2)
+        if dSum < self.DERI_THRESHOLD:
             l = 0
-        r, s = self.rectEdge(self.N - self.H * 2, self.M // 2, True, self.H * 2, self.M // 2 - self.PADDING * 2)
-        if s < self.DERI_THRESHOLD:
+        r, dSum, Sum = self.rectEdge(self.N - self.H * 2, self.M // 2, True, self.H * 2, self.M // 2 - self.PADDING * 2)
+        if dSum < self.DERI_THRESHOLD:
             r = self.M
         if draw:
             self.SrcShow.point((self.N - self.H, l), colors[3])
@@ -82,16 +80,17 @@ class ImgProcess:
         for u in range(2):
             J = LR[u]
             dj = 0
-            print(" t  j   dSum  Sum")
+            n = cma = 0  # 灰度累积移动平均
+            print(" t  j   dSum   Sum   cma")
             for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
                 j = self.getConstrain(J + dj - (self.W >> 1))
-                self.edges[u][t], s = self.rectEdge(i, j, u, self.H, self.W)
-                print("%2d %3d %6d %d" % (t, self.edges[u][t], s, self.rectSum(i, j)))
-                if s < self.DERI_THRESHOLD:
+                self.edges[u][t], dSum, Sum = self.rectEdge(i, j, u, self.H, self.W)
+                print("%2d %3d %6d %5d %5d" % (t, self.edges[u][t], dSum, Sum, cma))
+                if dSum < self.DERI_THRESHOLD:
                     self.valid[u][t] = False
                     if draw:
                         self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
-                    if self.rectSum(i, j) < self.SUM_THRESHOLD:
+                    if Sum < cma * 0.8:
                         break
                     J += dj
                 else:
@@ -105,10 +104,12 @@ class ImgProcess:
                     if draw:
                         self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
                         self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
+                n += 1
+                cma += (Sum - cma) // n
             print()
 
     def fitLine(self) -> List[np.array]:
-        res = []
+        res = [None, None]
         for u in range(2):
             x, y = [], []
             for t, i in enumerate(range(self.N - (self.H >> 1), -1, -self.H)):
@@ -117,11 +118,11 @@ class ImgProcess:
                     self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])
                     x.append(i_)
                     y.append(j_)
-            res.append(np.polyfit(x, y, 2))
-            px = list(range(self.N_))
-            # px = np.linspace(0, self.N_, self.N_ + 1)
-            py = np.polyval(res[-1], px)
-            self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+            if len(x) > 2:
+                res[u] = np.polyfit(x, y, 2)
+                px = list(range(self.N_))
+                py = np.polyval(res[u], px)
+                self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
         return res
 
     def work(self):

@@ -6,7 +6,6 @@ if __name__ == "__main__":
     dir = dirname(realpath(__file__))
     Config = getConfig(dir)
     main = Main(Config)
-    main.applyImg()
     main.imgWindow.imgProcess.work()
     main.imgWindow.showImg()
     main.mainloop()

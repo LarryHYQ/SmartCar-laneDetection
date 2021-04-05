@@ -117,7 +117,7 @@ class ImgProcess:
         for u in range(2):
             x, y = [], []
             for t, i in enumerate(range(self.N - (self.H >> 1), -1, -self.H)):
-                if not self.valid[u][t] and self.sum[u][t] < self.Sum * 0.9:
+                if not self.valid[u][t] and self.sum[u][t] < self.Sum:
                     self.SrcShow.point((i, self.edges[u][t]), colors[2 + u ^ 1])
                     break
                 if self.valid[u][t]:
@@ -125,7 +125,7 @@ class ImgProcess:
                     self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])
                     x.append(i_)
                     y.append(j_)
-            if len(x) > 2:
+            if len(x) > 3:
                 res[u] = np.polyfit(x, y, 2)
                 px = list(range(self.N_))
                 py = np.polyval(res[u], px)

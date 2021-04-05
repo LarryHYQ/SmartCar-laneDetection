@@ -31,6 +31,11 @@ class ImgWindow:
         self.perFrame.pack()
         self.perCanvas.pack(padx=3, pady=3)
 
+        self.root.bind("<a>", lambda event: self.main.pre())
+        self.root.bind("<Left>", lambda event: self.main.pre())
+        self.root.bind("<d>", lambda event: self.main.nxt())
+        self.root.bind("<Right>", lambda event: self.main.nxt())
+
     def showImg(self) -> None:
         from PIL import Image
         from PIL.ImageTk import PhotoImage

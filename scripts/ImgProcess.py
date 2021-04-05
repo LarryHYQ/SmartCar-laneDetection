@@ -4,7 +4,7 @@ from typing import List, Tuple
 from .utility.ZoomedImg import ZoomedImg
 from .transform import getPerMat, axisTransform, transfomImg
 
-colors = ((255, 255, 0), (0, 0, 255), (0, 255, 0), (255, 0, 255))
+colors = ((0, 255, 255), (255, 0, 0), (0, 255, 0), (255, 0, 255))
 
 
 class ImgProcess:
@@ -24,13 +24,14 @@ class ImgProcess:
     def setImg(self, img: np.ndarray) -> None:
         img = cv2.resize(img[self.CUT :, :], (self.M, self.N))
         self.img = img.tolist()
-        self.OriginShow = ZoomedImg(img, 5)
-        self.PerShow = ZoomedImg(transfomImg(img, self.PERMAT, self.N, self.M, self.N_, self.M_, self.I_SHIFT, self.J_SHIFT), 4)
+        self.SrcShow = ZoomedImg(img, self.SRCZOOM)
+        self.PerShow = ZoomedImg(transfomImg(img, self.PERMAT, self.N, self.M, self.N_, self.M_, self.I_SHIFT, self.J_SHIFT), self.PERZOOM)
 
     def applyConfig(self) -> None:
         self.N, self.M = self.Config["N"], self.Config["M"]  # 图片的高和宽
         self.CUT = self.Config["CUT"]  # 裁剪最上面的多少行
         self.NOISE = self.Config["NOISE"]  # 灰度梯度最小有效值
+        self.SRCZOOM = self.Config["SRCZOOM"]  #
         self.H, self.W = self.Config["H"], self.Config["W"]  # 框框的高和宽
         self.PADDING = self.Config["PADDING"]  # 舍弃左右边界的大小
         self.DERI_THRESHOLD = self.Config["DERI_THRESHOLD"]  # 小框内灰度梯度总和最小有效值
@@ -38,6 +39,7 @@ class ImgProcess:
         self.N_, self.M_ = self.Config["N_"], self.Config["M_"]  # 新图的高和宽
         self.I_SHIFT = self.Config["I_SHIFT"]  # 新图向下平移
         self.J_SHIFT = self.Config["J_SHIFT"]  # 新图向右平移
+        self.PERZOOM = self.Config["PERZOOM"]  #
         self.PERMAT = getPerMat(self.Config["SRCARR"], self.Config["PERARR"])  # 逆透视变换矩阵
 
         count = self.N // self.H
@@ -72,8 +74,8 @@ class ImgProcess:
         if s < self.DERI_THRESHOLD:
             r = self.M
         if draw:
-            self.OriginShow.point((self.N - self.H, l), colors[3])
-            self.OriginShow.point((self.N - self.H, r), colors[2])
+            self.SrcShow.point((self.N - self.H, l), colors[3])
+            self.SrcShow.point((self.N - self.H, r), colors[2])
         return l, r
 
     def getEdge(self, LR: Tuple[int], draw: bool = True):
@@ -88,7 +90,7 @@ class ImgProcess:
                 if s < self.DERI_THRESHOLD:
                     self.valid[u][t] = False
                     if draw:
-                        self.OriginShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
+                        self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
                     if self.rectSum(i, j) < self.SUM_THRESHOLD:
                         break
                     J += dj
@@ -101,8 +103,8 @@ class ImgProcess:
                         dj = self.edges[u][t] - J
                         J = self.edges[u][t]
                     if draw:
-                        self.OriginShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
-                        self.OriginShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
+                        self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
+                        self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
             print()
 
     def fitLine(self) -> List[np.array]:
@@ -127,7 +129,7 @@ class ImgProcess:
         print(self.fitLine())
 
     def show(self):
-        self.OriginShow.show("origin")
+        self.SrcShow.show("origin")
         self.PerShow.show("perspective")
 
 

@@ -20,10 +20,15 @@ class Main:
         self.root.bind("<Left>", lambda event: self.pre())
         self.root.bind("<d>", lambda event: self.nxt())
         self.root.bind("<Right>", lambda event: self.nxt())
+        self.root.protocol("WM_DELETE_WINDOW", self._onClose)
 
     def readDir(self):
-        from os import listdir
+        from os import listdir, rename
 
+        self.names = listdir(self.Config["IMGDIR"])
+        self.names.sort(key=lambda s: ("".join(filter(str.isalpha, s)), int("".join(filter(str.isdigit, s)))))
+        for i, c in enumerate(self.names):
+            rename(self.Config["IMGDIR"] + c, self.Config["IMGDIR"] + str(i) + ".png")
         self.names = listdir(self.Config["IMGDIR"])
         self.names.sort(key=lambda s: ("".join(filter(str.isalpha, s)), int("".join(filter(str.isdigit, s)))))
 

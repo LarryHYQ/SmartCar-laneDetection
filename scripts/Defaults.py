@@ -6,7 +6,7 @@ SRCZOOM = 5
 NOISE = 5  # 灰度梯度最小有效值
 H, W = 8, 35  # 框框的高和宽
 PADDING = 1  # 舍弃左右边界的大小
-DERI_THRESHOLD = 60000  # 小框内灰度梯度总和最小有效值
+DERI_THRESHOLD = 50000  # 小框内灰度梯度总和最小有效值
 SUM_THRESHOLD = 30000  # 小框内灰度总和最小有效值
 
 N_, M_ = 130, 235  # 新图的高和宽

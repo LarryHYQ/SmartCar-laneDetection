@@ -21,6 +21,8 @@ class ImgProcess:
         self.valid = []
         self.sum = []
         self.Sum = 0
+        self.res = [None] * 2
+        self.firstFrame = True
         self.applyConfig()
 
     def setImg(self, img: np.ndarray) -> None:
@@ -43,6 +45,7 @@ class ImgProcess:
         self.J_SHIFT = self.Config["J_SHIFT"]  # 新图向右平移
         self.PERZOOM = self.Config["PERZOOM"]  #
         self.PERMAT = getPerMat(self.Config["SRCARR"], self.Config["PERARR"])  # 逆透视变换矩阵
+        self.REPMAT = getPerMat(self.Config["PERARR"], self.Config["SRCARR"])  # 反向逆透视变换矩阵
 
         count = self.N // self.H
         if len(self.edges) != count:
@@ -67,32 +70,44 @@ class ImgProcess:
                     dSum += cur
         return Pos // dSum, dSum, Sum
 
-    def getButtom(self, draw: bool = True) -> Tuple[int]:
+    def getButtom(self) -> Tuple[int]:
+
         l, dSum, Sum = self.rectEdge(self.N - self.H * 2, self.PADDING, False, self.H * 2, self.M // 2 - self.PADDING * 2)
         if dSum < self.DERI_THRESHOLD:
             l = 0
         r, dSum, Sum = self.rectEdge(self.N - self.H * 2, self.M // 2, True, self.H * 2, self.M // 2 - self.PADDING * 2)
         if dSum < self.DERI_THRESHOLD:
             r = self.M
-        if draw:
-            self.SrcShow.point((self.N - self.H, l), colors[3])
-            self.SrcShow.point((self.N - self.H, r), colors[2])
+
+        self.SrcShow.point((self.N - self.H, l), colors[3])
+        self.SrcShow.point((self.N - self.H, r), colors[2])
         return l, r
 
-    def getEdge(self, LR: Tuple[int], draw: bool = True):
+    def getEdge(self, LR: Tuple[int]):
         n = S = 0
         for u in range(2):
             J = LR[u]
             dj = 0
+            print()
             print(" t  j   dSum   Sum")
             for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
+                # if not self.firstFrame and not (t > 2 and self.valid[u][t - 1] and abs(self.edges[u][t] - self.edges[u][t - 1]) < 40):
+                #     j = self.getConstrain(self.edges[u][t] - (self.W >> 1))
+                #     self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
+                # else:
+                #     dSum = 0
+
+                # if self.firstFrame or dSum < self.DERI_THRESHOLD:
+                #     j = self.getConstrain(J + dj - (self.W >> 1))
+                #     self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
+
                 j = self.getConstrain(J + dj - (self.W >> 1))
                 self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
+
                 print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
                 if dSum < self.DERI_THRESHOLD:
                     self.valid[u][t] = False
-                    if draw:
-                        self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
+                    self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
                     J += dj
                 else:
                     self.valid[u][t] = True
@@ -102,38 +117,39 @@ class ImgProcess:
                         dj = self.edges[u][1] - self.edges[u][0]
                         J = self.edges[u][1]
                     elif t > 1:
-                        dj = self.edges[u][t] - J
-                        J = self.edges[u][t]
-                    if draw:
-                        self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
-                        self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
-            print()
+                        dj = self.edges[u][t] - J if self.valid[u][t - 1] else 0
+                    J = self.edges[u][t]
+
+                    self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
+                    self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
         if n:
             self.Sum = S // n
+        self.firstFrame = False
+        print(self.Sum)
 
     def fitLine(self) -> List[np.array]:
-        print(self.Sum)
-        res = [None, None]
         for u in range(2):
             x, y = [], []
+            hasValided = False
             for t, i in enumerate(range(self.N - (self.H >> 1), -1, -self.H)):
-                if not self.valid[u][t] and self.sum[u][t] < self.Sum:
+                if hasValided and not self.valid[u][t] and self.sum[u][t] < self.Sum:
                     self.SrcShow.point((i, self.edges[u][t]), colors[2 + u ^ 1])
+                    for t in range(t, self.N // self.H):
+                        self.valid[u][t] = False
                     break
                 if self.valid[u][t]:
+                    hasValided = True
                     i_, j_ = map(round, axisTransform(i, self.edges[u][t], self.PERMAT))
                     self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])
                     x.append(i_)
                     y.append(j_)
-            if len(x) > 3:
-                res[u] = np.polyfit(x, y, 2)
+            if len(x) > 2:
+                self.res[u] = np.polyfit(x, y, 2)
                 px = list(range(self.N_))
-                py = np.polyval(res[u], px)
+                py = np.polyval(self.res[u], px)
                 self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
-        return res
 
     def work(self):
-        self.applyConfig()
         self.getEdge(self.getButtom())
         self.fitLine()
 

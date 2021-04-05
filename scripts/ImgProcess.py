@@ -86,6 +86,7 @@ class ImgProcess:
     def getEdge(self, LR: Tuple[int]):
         n = S = 0
         for u in range(2):
+            cur = [0, LR[u]]
             J = LR[u]
             dj = 0
             print()
@@ -100,7 +101,6 @@ class ImgProcess:
                 # if self.firstFrame or dSum < self.DERI_THRESHOLD:
                 #     j = self.getConstrain(J + dj - (self.W >> 1))
                 #     self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
-
                 j = self.getConstrain(J + dj - (self.W >> 1))
                 self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
 

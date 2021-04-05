@@ -118,7 +118,8 @@ class ImgProcess:
                     x.append(i_)
                     y.append(j_)
             res.append(np.polyfit(x, y, 2))
-            px = np.linspace(0, self.N_, self.N_)
+            px = list(range(self.N_))
+            # px = np.linspace(0, self.N_, self.N_ + 1)
             py = np.polyval(res[-1], px)
             self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
         return res
@@ -126,10 +127,10 @@ class ImgProcess:
     def work(self):
         self.applyConfig()
         self.getEdge(self.getButtom())
-        print(self.fitLine())
+        self.fitLine()
 
     def show(self):
-        self.SrcShow.show("origin")
+        self.SrcShow.show("src")
         self.PerShow.show("perspective")
 
 

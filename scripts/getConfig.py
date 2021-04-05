@@ -9,7 +9,7 @@ def getConfig(dir):
     Config["IMGDIR"] = Config["IMGDIR"] if "IMGDIR" in Config else "img\\"
     if Config["IMGDIR"][-1] not in "/\\":
         Config["IMGDIR"] += "\\"
-    Config["INDEX"] = Config["INDEX"] if "INDEX" in Config else 0
+    Config["INDEX"] = int(Config["INDEX"]) if "INDEX" in Config else 0
 
     if "IMGPROCESS" not in Config:
         Config["IMGPROCESS"] = {}

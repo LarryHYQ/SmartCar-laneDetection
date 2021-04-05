@@ -58,8 +58,9 @@ class ZoomedImg:
         """
         pi = np.array(pi)
         pj = np.array(pj)
-        pts = (np.asarray([pj + j_shift, pi + i_shift]).T).astype("int32")
-        cv2.polylines(self.canvas, [pts * self.zoom], closed, color, thickness)
+        # pts = np.asarray([pj + j_shift, pi + i_shift]).T
+        pts = (np.asarray([pj + j_shift, pi + i_shift]).T * self.zoom).astype("int32")
+        cv2.polylines(self.canvas, [pts], closed, color, thickness)
 
     def show(self, name: str):
         "显示图像"

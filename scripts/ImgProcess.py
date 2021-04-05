@@ -19,6 +19,8 @@ class ImgProcess:
         self.Config = Config
         self.edges = []
         self.valid = []
+        self.sum = []
+        self.Sum = 0
         self.applyConfig()
 
     def setImg(self, img: np.ndarray) -> None:
@@ -46,6 +48,7 @@ class ImgProcess:
         if len(self.edges) != count:
             self.edges = [[-1] * count for _ in range(2)]
             self.valid = [[False] * count for _ in range(2)]
+            self.sum = [[0] * count for _ in range(2)]
 
     def getConstrain(self, j: int) -> int:
         return min(max(j, self.PADDING), self.M - self.W - self.PADDING)
@@ -77,24 +80,24 @@ class ImgProcess:
         return l, r
 
     def getEdge(self, LR: Tuple[int], draw: bool = True):
+        n = S = 0
         for u in range(2):
             J = LR[u]
             dj = 0
-            n = cma = 0  # 灰度累积移动平均
-            print(" t  j   dSum   Sum   cma")
+            print(" t  j   dSum   Sum")
             for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
                 j = self.getConstrain(J + dj - (self.W >> 1))
-                self.edges[u][t], dSum, Sum = self.rectEdge(i, j, u, self.H, self.W)
-                print("%2d %3d %6d %5d %5d" % (t, self.edges[u][t], dSum, Sum, cma))
+                self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
+                print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
                 if dSum < self.DERI_THRESHOLD:
                     self.valid[u][t] = False
                     if draw:
                         self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
-                    if Sum < cma * 0.8:
-                        break
                     J += dj
                 else:
                     self.valid[u][t] = True
+                    S += self.sum[u][t]
+                    n += 1
                     if t == 1:
                         dj = self.edges[u][1] - self.edges[u][0]
                         J = self.edges[u][1]
@@ -104,15 +107,19 @@ class ImgProcess:
                     if draw:
                         self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
                         self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
-                n += 1
-                cma += (Sum - cma) // n
             print()
+        if n:
+            self.Sum = S // n
 
     def fitLine(self) -> List[np.array]:
+        print(self.Sum)
         res = [None, None]
         for u in range(2):
             x, y = [], []
             for t, i in enumerate(range(self.N - (self.H >> 1), -1, -self.H)):
+                if not self.valid[u][t] and self.sum[u][t] < self.Sum * 0.9:
+                    self.SrcShow.point((i, self.edges[u][t]), colors[2 + u ^ 1])
+                    break
                 if self.valid[u][t]:
                     i_, j_ = map(round, axisTransform(i, self.edges[u][t], self.PERMAT))
                     self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])

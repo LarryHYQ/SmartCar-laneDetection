@@ -62,6 +62,7 @@ class Main:
 
         if len(self.names) != 0:
             remove(self.names.pop(self.Config["INDEX"]))
+            self.setTitleCount()
             self.applyImg()
 
     def entryCallback(self, strVar, config: dict, key: str, Type=int):
@@ -76,12 +77,12 @@ class Main:
         from cv2 import imread
         from numpy import zeros
 
-        self.indexVar.set(str(self.Config["INDEX"]))
-        self.Config["INDEX"] = max(0, min(self.Config["INDEX"], len(self.names) - 1))
-        img = imread(self.Config["IMGDIR"] + self.names[self.Config["INDEX"]], 0) if self.names else zeros((self.Config["IMGPROCESS"]["N"], self.Config["IMGPROCESS"]["M"]), "uint8")
-        self.imgWindow.setImg(img)
-        self.imgWindow.imgProcess.work()
-        self.imgWindow.showImg()
+        if self.names:
+            self.indexVar.set(str(self.Config["INDEX"]))
+            self.Config["INDEX"] = max(0, min(self.Config["INDEX"], len(self.names) - 1))
+            self.imgWindow.setImg(imread(self.Config["IMGDIR"] + self.names[self.Config["INDEX"]], 0))
+            self.imgWindow.imgProcess.work()
+            self.imgWindow.showImg()
 
     def _onClose(self):
         self.Config.write()

@@ -2,8 +2,8 @@ import numpy as np
 import cv2
 from collections import deque
 from typing import List, Tuple
-from .utility.ZoomedImg import ZoomedImg
 from .transform import getPerMat, axisTransform, transfomImg
+from .utility import *
 
 colors = ((0, 255, 255), (255, 0, 0), (0, 255, 0), (255, 0, 255))
 
@@ -98,8 +98,8 @@ class ImgProcess:
             def angleCheck(j: int) -> bool:
                 if len(X) < 2:
                     return True
-                x1, x2 = X[-1] - X[0], i - X[-1]
-                y1, y2 = Y[-1] - Y[0], j - Y[-1]
+                x1, x2 = X[-1] - X[-2], i - X[-1]
+                y1, y2 = Y[-1] - Y[-2], j - Y[-1]
                 dot = x1 * x2 + y1 * y2
                 return (dot * dot << 1) // ((x1 * x1 + y1 * y1) * (x2 * x2 + y2 * y2)) >= 1
 
@@ -122,7 +122,8 @@ class ImgProcess:
                     X.append(i)
                     Y.append(self.edges[u][t])
                     if len(X) > 1:
-                        cur = np.polyfit(X, Y, 1)
+                        cur = polyfit1d(X, Y)
+                        # cur = np.polyfit(X, Y, 1)
                     self.valid[u][t] = True
                     S += self.sum[u][t]
                     n += 1
@@ -152,7 +153,8 @@ class ImgProcess:
                     x.append(i_)
                     y.append(j_)
             if len(x) > 3:
-                self.res[u] = np.polyfit(x, y, 2)
+                # self.res[u] = np.polyfit(x, y, 2)
+                self.res[u] = polyfit2d(x, y)
                 px = list(range(self.N_))
                 py = np.polyval(self.res[u], px)
                 self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)

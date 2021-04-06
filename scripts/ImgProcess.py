@@ -129,6 +129,7 @@ class ImgProcess:
 
                     self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
                     self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
+                # self.SrcShow.putText("%d %d %d" % (self.edges[u][t], dSum, self.sum[u][t]), (i + (self.H >> 1) + 1, j + 1), color=(255, 127, 127))
         if n:
             self.Sum = S // n
         self.firstFrame = False

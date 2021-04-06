@@ -61,6 +61,9 @@ class ZoomedImg:
         pts = (np.asarray([pj + j_shift, pi + i_shift]).T * self.zoom).astype("int32")
         cv2.polylines(self.canvas, [pts], closed, color, thickness)
 
+    def putText(self, text: str, pt: Tuple[int], font: int = cv2.FONT_HERSHEY_TRIPLEX, scale: float = 0.65, color: Tuple[int] = (255, 0, 0), thickness: int = 1):
+        cv2.putText(self.canvas, text, tuple(v * self.zoom for v in reversed(pt)), font, scale, color, thickness)
+
     def show(self, name: str):
         "显示图像"
         cv2.imshow(name, self.canvas)

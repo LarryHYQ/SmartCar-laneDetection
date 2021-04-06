@@ -22,10 +22,12 @@ class Main:
         self.indexCheck()
         self.indexEntry = Entry(self.root, textvariable=self.indexVar, validate="focusout", validatecommand=self.indexCheck, width=10)
         self.indexEntry.bind("<Return>", lambda e: (self.indexCheck(), self.applyImg()))
-        self.indexButton = Button(self.root, text="确认", command=self.applyImg)
+        self.indexButton = Button(self.root, text="应用", command=self.applyImg, width=5)
+        self.deletButton = Button(self.root, text="删除", command=self.delImg, width=5)
         self.indexLabel.grid(row=0, column=0, padx=3, pady=3)
         self.indexEntry.grid(row=0, column=1, padx=3, pady=3)
         self.indexButton.grid(row=0, column=2, padx=3, pady=3)
+        self.deletButton.grid(row=0, column=3, padx=3, pady=3)
 
         self.setTitleCount()
         self.root.resizable(False, False)
@@ -61,7 +63,7 @@ class Main:
         from os import remove
 
         if len(self.names) != 0:
-            remove(self.names.pop(self.Config["INDEX"]))
+            remove(self.Config["IMGDIR"] + self.names.pop(self.Config["INDEX"]))
             self.setTitleCount()
             self.applyImg()
 

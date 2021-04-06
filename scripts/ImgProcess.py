@@ -47,7 +47,9 @@ class ImgProcess:
         self.PERZOOM = self.Config["PERZOOM"]  #
         self.PERMAT = getPerMat(self.Config["SRCARR"], self.Config["PERARR"])  # 逆透视变换矩阵
         self.REPMAT = getPerMat(self.Config["PERARR"], self.Config["SRCARR"])  # 反向逆透视变换矩阵
+        self.resetState()
 
+    def resetState(self):
         count = self.N // self.H
         if len(self.edges) != count:
             self.edges = [[-1] * count for _ in range(2)]
@@ -85,7 +87,7 @@ class ImgProcess:
         return l, r
 
     def getEdge(self, LR: Tuple[int]):
-
+        self.resetState()
         n = S = 0
         for u in range(2):
             cur = [0, LR[u]]

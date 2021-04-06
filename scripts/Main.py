@@ -6,8 +6,8 @@ class Main:
 
         self.Config = Config
         self.root = Tk()
-        self.setProperty()
         self.readDir()
+        self.setProperty()
         self.imgWindow = ImgWindow(self)
         self.applyImg()
         self.mainloop = self.root.mainloop
@@ -27,12 +27,15 @@ class Main:
         self.indexEntry.grid(row=0, column=1, padx=3, pady=3)
         self.indexButton.grid(row=0, column=2, padx=3, pady=3)
 
-        self.root.title("设置")
+        self.setTitleCount()
         self.root.resizable(False, False)
         self.root.attributes("-topmost", True)
         self.root.attributes("-toolwindow", True)
 
         self.root.protocol("WM_DELETE_WINDOW", self._onClose)
+
+    def setTitleCount(self):
+        self.root.title("设置 - 共%d张" % len(self.names))
 
     def readDir(self):
         from os import listdir, rename

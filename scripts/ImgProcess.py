@@ -59,7 +59,7 @@ class ImgProcess:
     def getConstrain(self, j: int) -> int:
         return min(max(j, self.PADDING), self.M - self.W - self.PADDING)
 
-    def rectEdge(self, I: int, J: int, right: bool, H: int, W: int) -> int:
+    def rectEdge(self, I: int, J: int, right: bool, H: int, W: int) -> Tuple[int]:
         Pos, dSum, Sum = 0, 1, 0
         for i in range(I, I + H):
             for j in range(J + 1, J + W - 1):
@@ -73,25 +73,11 @@ class ImgProcess:
                     dSum += cur
         return Pos // dSum, dSum, Sum
 
-    def getBottom(self) -> Tuple[int]:
-
-        l, dSum, Sum = self.rectEdge(self.N - self.H * 2, self.PADDING, False, self.H * 2, self.M // 2 - self.PADDING * 2)
-        if dSum < self.DERI_THRESHOLD:
-            l = 0
-        r, dSum, Sum = self.rectEdge(self.N - self.H * 2, self.M // 2, True, self.H * 2, self.M // 2 - self.PADDING * 2)
-        if dSum < self.DERI_THRESHOLD:
-            r = self.M
-
-        self.SrcShow.point((self.N - self.H, l), colors[3])
-        self.SrcShow.point((self.N - self.H, r), colors[2])
-        return l, r
-
     def getEdge(self):
-        LR = self.getBottom()
         self.resetState()
         n = S = 0
         for u in range(2):
-            cur = [0, LR[u]]
+            cur = [0] * 2
             Y = deque(maxlen=4)
             X = deque(maxlen=4)
 
@@ -105,7 +91,23 @@ class ImgProcess:
 
             print()
             print(" t  j   dSum   Sum")
+            hasTracedBottom = False
             for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
+                # TODO 过于粗糙，需要修改
+                if not hasTracedBottom:
+                    if i <= 2:
+                        break
+                    for j in range(self.M >> 1, self.M - (self.W >> 1) - self.PADDING - 1) if u else range(self.M >> 1, (self.W >> 1) + self.PADDING + 1, -1):
+                        ti = i + (self.H >> 1)
+                        if (self.img[ti][j - 5] - self.img[ti][j + 5] if u else self.img[ti][j + 5] - self.img[ti][j - 5]) > 50:
+                            j -= self.W >> 1
+                            if self.rectEdge(i - self.H, j, u, self.H, self.W)[1] >= self.DERI_THRESHOLD:
+                                cur[1], _, _ = self.rectEdge(i - self.H, j, u, self.H << 1, self.W)
+                                hasTracedBottom = True
+                                break
+                    else:
+                        continue
+
                 J = round(np.polyval(cur, i))
                 if len(X) > 2 and ((u and J > self.M) or (not u and J < 0)):
                     self.valid[u][t] = False

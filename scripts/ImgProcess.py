@@ -73,7 +73,7 @@ class ImgProcess:
                     dSum += cur
         return Pos // dSum, dSum, Sum
 
-    def getButtom(self) -> Tuple[int]:
+    def getBottom(self) -> Tuple[int]:
 
         l, dSum, Sum = self.rectEdge(self.N - self.H * 2, self.PADDING, False, self.H * 2, self.M // 2 - self.PADDING * 2)
         if dSum < self.DERI_THRESHOLD:
@@ -86,7 +86,8 @@ class ImgProcess:
         self.SrcShow.point((self.N - self.H, r), colors[2])
         return l, r
 
-    def getEdge(self, LR: Tuple[int]):
+    def getEdge(self):
+        LR = self.getBottom()
         self.resetState()
         n = S = 0
         for u in range(2):
@@ -156,7 +157,7 @@ class ImgProcess:
                 self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
 
     def work(self):
-        self.getEdge(self.getButtom())
+        self.getEdge()
         self.fitLine()
 
     def show(self):

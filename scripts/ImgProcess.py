@@ -85,21 +85,33 @@ class ImgProcess:
         return l, r
 
     def getEdge(self, LR: Tuple[int]):
+
         n = S = 0
         for u in range(2):
             cur = [0, LR[u]]
             Y = deque(maxlen=4)
             X = deque(maxlen=4)
+
+            def angleCheck(j: int) -> bool:
+                if len(X) < 2:
+                    return True
+                x1, x2 = X[-1] - X[0], i - X[-1]
+                y1, y2 = Y[-1] - Y[0], j - Y[-1]
+                dot = x1 * x2 + y1 * y2
+                return (dot * dot << 1) // ((x1 * x1 + y1 * y1) * (x2 * x2 + y2 * y2)) >= 1
+
             print()
             print(" t  j   dSum   Sum")
             for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
-                j = self.getConstrain(round(np.polyval(cur, i) - (self.W >> 1)))
+                J = round(np.polyval(cur, i))
+                j = self.getConstrain(J - (self.W >> 1))
                 self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
-
                 print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
-                if dSum < self.DERI_THRESHOLD:
+
+                if dSum < self.DERI_THRESHOLD or not angleCheck(self.edges[u][t]):
                     self.valid[u][t] = False
                     self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
+                    self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), (0, 0, 0))
                 else:
                     X.append(i)
                     Y.append(self.edges[u][t])

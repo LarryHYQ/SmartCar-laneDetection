@@ -104,6 +104,9 @@ class ImgProcess:
             print(" t  j   dSum   Sum")
             for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
                 J = round(np.polyval(cur, i))
+                if len(X) > 2 and ((u and J > self.M) or (not u and J < 0)):
+                    self.valid[u][t] = False
+                    break
                 j = self.getConstrain(J - (self.W >> 1))
                 self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
                 print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))

@@ -33,8 +33,7 @@ class SMA:
 class CMA:
     "累积移动平均"
 
-    def __init__(self, count: int):
-        self.count = count
+    def __init__(self):
         self.reset()
 
     def reset(self):

@@ -24,6 +24,7 @@ class ImgProcess:
         self.Sum = 0
         self.res = [None] * 2
         self.firstFrame = True
+        self.predictor = [linePredictor(4), linePredictor(4)]
         self.applyConfig()
 
     def setImg(self, img: np.ndarray) -> None:
@@ -51,10 +52,9 @@ class ImgProcess:
 
     def resetState(self):
         count = self.N // self.H
-        if len(self.edges) != count:
-            self.edges = [[-1] * count for _ in range(2)]
-            self.valid = [[False] * count for _ in range(2)]
-            self.sum = [[0] * count for _ in range(2)]
+        self.edges = [[-1] * count for _ in range(2)]
+        self.valid = [[False] * count for _ in range(2)]
+        self.sum = [[0] * count for _ in range(2)]
 
     def getConstrain(self, j: int) -> int:
         return min(max(j, self.PADDING), self.M - self.W - self.PADDING)
@@ -77,17 +77,6 @@ class ImgProcess:
         self.resetState()
         n = S = 0
         for u in range(2):
-            cur = [0] * 2
-            Y = deque(maxlen=4)
-            X = deque(maxlen=4)
-
-            def angleCheck(j: int) -> bool:
-                if len(X) < 2:
-                    return True
-                x1, x2 = X[-1] - X[-2], i - X[-1]
-                y1, y2 = Y[-1] - Y[-2], j - Y[-1]
-                dot = x1 * x2 + y1 * y2
-                return (dot * dot << 1) // ((x1 * x1 + y1 * y1) * (x2 * x2 + y2 * y2)) >= 1
 
             print()
             print(" t  j   dSum   Sum")
@@ -102,30 +91,28 @@ class ImgProcess:
                         if (self.img[ti][j - 5] - self.img[ti][j + 5] if u else self.img[ti][j + 5] - self.img[ti][j - 5]) > 50:
                             j -= self.W >> 1
                             if self.rectEdge(i - self.H, j, u, self.H, self.W)[1] >= self.DERI_THRESHOLD:
-                                cur[1], _, _ = self.rectEdge(i - self.H, j, u, self.H << 1, self.W)
+                                self.predictor[u].reset(self.rectEdge(i - self.H, j, u, self.H << 1, self.W)[0])  # !
                                 hasTracedBottom = True
                                 break
                     else:
                         continue
 
-                J = round(np.polyval(cur, i))
-                if len(X) > 2 and ((u and J > self.M) or (not u and J < 0)):
+                J = self.predictor[u].val(i)
+                if self.predictor[u].n > 2 and ((u and J > self.M) or (not u and J < 0)):
                     self.valid[u][t] = False
                     break
                 j = self.getConstrain(J - (self.W >> 1))
                 self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
                 print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
 
-                if dSum < self.DERI_THRESHOLD or not angleCheck(self.edges[u][t]):
+                if t == 8:
+                    print("asdf")
+                if not (dSum > self.DERI_THRESHOLD and self.predictor[u].angleCheck(i, self.edges[u][t])):
                     self.valid[u][t] = False
                     self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
                     self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), (0, 0, 0))
                 else:
-                    X.append(i)
-                    Y.append(self.edges[u][t])
-                    if len(X) > 1:
-                        cur = polyfit1d(X, Y)
-                        # cur = np.polyfit(X, Y, 1)
+                    self.predictor[u].update(i, self.edges[u][t])
                     self.valid[u][t] = True
                     S += self.sum[u][t]
                     n += 1

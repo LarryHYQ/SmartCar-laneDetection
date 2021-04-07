@@ -81,20 +81,25 @@ class ImgProcess:
             print()
             print(" t  j   dSum   Sum")
             hasTracedBottom = False
-            for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
+            t = 0
+            i = self.N - self.H
+            while i >= 0:
+
                 # TODO 过于粗糙，需要修改
                 if not hasTracedBottom:
                     if i <= 2:
                         break
                     for j in range(self.M >> 1, self.M - (self.W >> 1) - self.PADDING - 1) if u else range(self.M >> 1, (self.W >> 1) + self.PADDING + 1, -1):
-                        ti = i + (self.H >> 1)
-                        if (self.img[ti][j - 5] - self.img[ti][j + 5] if u else self.img[ti][j + 5] - self.img[ti][j - 5]) > 50:
+                        if (self.img[i][j - 5] - self.img[i][j + 5] if u else self.img[i][j + 5] - self.img[i][j - 5]) > 50:
                             j -= self.W >> 1
-                            if self.rectEdge(i - self.H, j, u, self.H, self.W)[1] >= self.DERI_THRESHOLD:
-                                self.predictor[u].reset(self.rectEdge(i - self.H, j, u, self.H << 1, self.W)[0])  # !
+                            j_, dSum_, _ = self.rectEdge(i - self.H, j, u, self.H << 1, self.W)
+                            if dSum_ >= self.DERI_THRESHOLD << 1:
+                                self.predictor[u].reset(j_)
                                 hasTracedBottom = True
                                 break
                     else:
+                        t += 2
+                        i -= self.H << 1
                         continue
 
                 J = self.predictor[u].val(i)
@@ -120,6 +125,9 @@ class ImgProcess:
                     self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
                     self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
                 # self.SrcShow.putText("%d %d %d" % (self.edges[u][t], dSum, self.sum[u][t]), (i + (self.H >> 1) + 1, j + 1), color=(255, 127, 127))
+
+                t += 1
+                i -= self.H
         if n:
             self.Sum = S // n
         self.firstFrame = False

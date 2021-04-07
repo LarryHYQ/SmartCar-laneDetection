@@ -33,12 +33,12 @@ class SMA:
 class CMA:
     "累积移动平均"
 
-    def __init__(self):
-        self.reset()
+    def __init__(self, defalut=0.0):
+        self.reset(defalut)
 
-    def reset(self):
+    def reset(self, defalut=0.0):
         self.n = 0
-        self.v = 0.0
+        self.v = defalut
 
     def update(self, x: int):
         self.n += 1
@@ -46,3 +46,7 @@ class CMA:
 
     def dif(self, x: int):
         return abs(self.v - x) / self.v
+
+
+__all__ = ["SMA", "CMA"]
+

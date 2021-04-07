@@ -83,23 +83,34 @@ class ImgProcess:
             hasTracedBottom = False
             t = 0
             i = self.N - self.H
+            vertCMA = CMA(self.img[i][self.M >> 1])
+            horiCMA = CMA()
             while i >= 0:
 
                 # TODO 过于粗糙，需要修改
                 if not hasTracedBottom:
-                    if i <= 2:
+                    print(vertCMA.dif(self.img[i][self.M >> 1]))
+                    self.SrcShow.point((i, self.M >> 1), (127, 255, 127), 6)
+                    if i <= 2 or vertCMA.dif(self.img[i][self.M >> 1]) > 0.2:
+                        self.SrcShow.point((i, self.M >> 1), (127, 255, 127), 8)
                         break
-                    for j in range(self.M >> 1, self.M - (self.W >> 1) - self.PADDING - 1) if u else range(self.M >> 1, (self.W >> 1) + self.PADDING + 1, -1):
-                        if (self.img[i][j - 5] - self.img[i][j + 5] if u else self.img[i][j + 5] - self.img[i][j - 5]) > 50:
+                    vertCMA.update(self.img[i][self.M >> 1])
+                    horiCMA.reset(self.img[i][self.M >> 1])
+                    for j in range(self.M >> 1, self.M - self.PADDING, 10) if u else range(self.M >> 1, self.PADDING - 1, -10):
+
+                        # if (self.img[i][j - 5] - self.img[i][j + 5] if u else self.img[i][j + 5] - self.img[i][j - 5]) > 50:
+                        if horiCMA.dif(self.img[i][j]) > 0.2:
+                            self.SrcShow.point((i, j), (127, 0, 127), 8)
                             j -= self.W >> 1
+                            j = self.getConstrain(j)
                             j_, dSum_, _ = self.rectEdge(i - self.H, j, u, self.H << 1, self.W)
                             if dSum_ >= self.DERI_THRESHOLD << 1:
                                 self.predictor[u].reset(j_)
                                 hasTracedBottom = True
                                 break
                     else:
-                        t += 2
-                        i -= self.H << 1
+                        t += 1
+                        i -= self.H
                         continue
 
                 J = self.predictor[u].val(i)
@@ -110,8 +121,6 @@ class ImgProcess:
                 self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
                 print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
 
-                if t == 8:
-                    print("asdf")
                 if not (dSum > self.DERI_THRESHOLD and self.predictor[u].angleCheck(i, self.edges[u][t])):
                     self.valid[u][t] = False
                     self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])

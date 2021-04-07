@@ -77,7 +77,6 @@ class Main:
 
     def applyImg(self):
         from cv2 import imread
-        from numpy import zeros
 
         if self.names:
             self.indexVar.set(str(self.Config["INDEX"]))

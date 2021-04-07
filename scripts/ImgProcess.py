@@ -82,12 +82,8 @@ class ImgProcess:
             print()
             print(" t  j   dSum   Sum")
             hasTracedBottom = False
-            t = 0
-            i = self.N - self.H
             vertCMA.reset(self.img[i][self.M >> 1])
-            while i >= 0:
-
-                # TODO 过于粗糙，需要修改
+            for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
                 if not hasTracedBottom:
                     self.SrcShow.point((i, self.M >> 1), (127, 255, 127), 6)
                     if i <= 2 or abs(vertCMA.v - self.img[i][self.M >> 1]) > 20:
@@ -104,35 +100,29 @@ class ImgProcess:
                             if dSum_ >= self.DERI_THRESHOLD << 1:
                                 self.predictor[u].reset(j_)
                                 hasTracedBottom = True
-                                break
+                            break
+
+                if hasTracedBottom:
+                    J = self.predictor[u].val(i)
+                    if self.predictor[u].n > 2 and ((u and J > self.M) or (not u and J < 0)):
+                        self.valid[u][t] = False
+                        break
+                    j = self.getConstrain(J - (self.W >> 1))
+                    self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
+                    print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
+
+                    if not (dSum > self.DERI_THRESHOLD and self.predictor[u].angleCheck(i, self.edges[u][t])):
+                        self.valid[u][t] = False
+                        self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
+                        self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), (0, 0, 0))
                     else:
-                        t += 1
-                        i -= self.H
-                        continue
+                        self.predictor[u].update(i, self.edges[u][t])
+                        self.valid[u][t] = True
+                        S += self.sum[u][t]
+                        n += 1
 
-                J = self.predictor[u].val(i)
-                if self.predictor[u].n > 2 and ((u and J > self.M) or (not u and J < 0)):
-                    self.valid[u][t] = False
-                    break
-                j = self.getConstrain(J - (self.W >> 1))
-                self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
-                print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
-
-                if not (dSum > self.DERI_THRESHOLD and self.predictor[u].angleCheck(i, self.edges[u][t])):
-                    self.valid[u][t] = False
-                    self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
-                    self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), (0, 0, 0))
-                else:
-                    self.predictor[u].update(i, self.edges[u][t])
-                    self.valid[u][t] = True
-                    S += self.sum[u][t]
-                    n += 1
-
-                    self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
-                    self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
-
-                t += 1
-                i -= self.H
+                        self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
+                        self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
         if n:
             self.Sum = S // n
         self.firstFrame = False

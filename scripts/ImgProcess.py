@@ -82,7 +82,7 @@ class ImgProcess:
             print()
             print(" t  j   dSum   Sum")
             hasTracedBottom = False
-            vertCMA.reset(self.img[i][self.M >> 1])
+            vertCMA.reset(self.img[self.N - self.H][self.M >> 1])
             for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
                 if not hasTracedBottom:
                     self.SrcShow.point((i, self.M >> 1), (127, 255, 127), 6)

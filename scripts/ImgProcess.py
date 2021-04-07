@@ -97,8 +97,6 @@ class ImgProcess:
                     vertCMA.update(self.img[i][self.M >> 1])
                     horiCMA.reset(self.img[i][self.M >> 1])
                     for j in range(self.M >> 1, self.M - self.PADDING, 10) if u else range(self.M >> 1, self.PADDING - 1, -10):
-
-                        # if (self.img[i][j - 5] - self.img[i][j + 5] if u else self.img[i][j + 5] - self.img[i][j - 5]) > 50:
                         if horiCMA.dif(self.img[i][j]) > 0.2:
                             self.SrcShow.point((i, j), (127, 0, 127), 8)
                             j -= self.W >> 1
@@ -133,7 +131,6 @@ class ImgProcess:
 
                     self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
                     self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
-                # self.SrcShow.putText("%d %d %d" % (self.edges[u][t], dSum, self.sum[u][t]), (i + (self.H >> 1) + 1, j + 1), color=(255, 127, 127))
 
                 t += 1
                 i -= self.H
@@ -159,7 +156,6 @@ class ImgProcess:
                     x.append(i_)
                     y.append(j_)
             if len(x) > 3:
-                # self.res[u] = np.polyfit(x, y, 2)
                 self.res[u] = polyfit2d(x, y)
                 px = list(range(self.N_))
                 py = np.polyval(self.res[u], px)

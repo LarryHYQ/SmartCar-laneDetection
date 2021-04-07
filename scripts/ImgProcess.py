@@ -76,15 +76,15 @@ class ImgProcess:
     def getEdge(self):
         self.resetState()
         n = S = 0
+        vertCMA = CMA()
+        horiCMA = CMA()
         for u in range(2):
-
             print()
             print(" t  j   dSum   Sum")
             hasTracedBottom = False
             t = 0
             i = self.N - self.H
-            vertCMA = CMA(self.img[i][self.M >> 1])
-            horiCMA = CMA()
+            vertCMA.reset(self.img[i][self.M >> 1])
             while i >= 0:
 
                 # TODO 过于粗糙，需要修改

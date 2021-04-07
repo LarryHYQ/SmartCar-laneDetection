@@ -89,15 +89,14 @@ class ImgProcess:
 
                 # TODO 过于粗糙，需要修改
                 if not hasTracedBottom:
-                    print(vertCMA.dif(self.img[i][self.M >> 1]))
                     self.SrcShow.point((i, self.M >> 1), (127, 255, 127), 6)
-                    if i <= 2 or vertCMA.dif(self.img[i][self.M >> 1]) > 0.2:
+                    if i <= 2 or abs(vertCMA.v - self.img[i][self.M >> 1]) > 20:
                         self.SrcShow.point((i, self.M >> 1), (127, 255, 127), 8)
                         break
                     vertCMA.update(self.img[i][self.M >> 1])
                     horiCMA.reset(self.img[i][self.M >> 1])
                     for j in range(self.M >> 1, self.M - self.PADDING, 10) if u else range(self.M >> 1, self.PADDING - 1, -10):
-                        if horiCMA.dif(self.img[i][j]) > 0.2:
+                        if abs(horiCMA.v - self.img[i][j]) > 20:
                             self.SrcShow.point((i, j), (127, 0, 127), 8)
                             j -= self.W >> 1
                             j = self.getConstrain(j)

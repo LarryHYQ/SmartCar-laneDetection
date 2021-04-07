@@ -26,9 +26,6 @@ class SMA:
         self.i = (self.i + 1) % self.count
         self.a[self.i] = x
 
-    def dif(self, x: int):
-        return abs(self.v - x) / self.v
-
 
 class CMA:
     "累积移动平均"
@@ -43,9 +40,6 @@ class CMA:
     def update(self, x: int):
         self.n += 1
         self.v += (x - self.v) / self.n
-
-    def dif(self, x: int):
-        return abs(self.v - x) / self.v
 
 
 __all__ = ["SMA", "CMA"]

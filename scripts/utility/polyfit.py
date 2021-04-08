@@ -171,9 +171,11 @@ def shift(abc: List[float], x0: int, d: float, direction: bool) -> List[float]:
     A, B, C = abc
     t = (B - A * x0 * x0 - B * x0 - C) / x0
     q = d / sqrt(t * t + 1)
-    p = -t * q
     if direction:
         q = -q
+    p = t * q
+    if 2 * A * x0 + B < 0:
+        p = -p
     return [A, B - 2 * A * p, A * p * p - B * p + C + q]
 
 

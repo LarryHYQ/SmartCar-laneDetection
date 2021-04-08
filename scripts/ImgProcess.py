@@ -193,12 +193,9 @@ class ImgProcess:
                 self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
         if max(count) < 3:
             return
-        if count[0] > count[1]:
-            tmp = list(self.res[0])
-            tmp[2] += 13.5
-        else:
-            tmp = list(self.res[1])
-            tmp[2] -= 13.5
+
+        tmp, u = (self.res[0], 0) if count[0] > count[1] else (self.res[1], 1)
+        tmp = shift(tmp, 120, 13.5, u)
         px = list(range(self.N_))
         py = np.polyval(tmp, px)
         self.PerShow.polylines(px, py, (255, 0, 127), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)

@@ -4,6 +4,7 @@ https://blog.csdn.net/u011023470/article/details/111381695
 https://blog.csdn.net/u011023470/article/details/111381298
 """
 from typing import List, Tuple
+from math import sqrt
 
 
 class linePredictor:
@@ -145,11 +146,36 @@ class Polyfit2d:
         self.x4 /= self.n
         self.xy /= self.n
         self.x2y /= self.n
-        b = ((self.x * self.y - self.xy) / (self.x3 - self.x2 * self.x) - (self.x2 * self.y - self.x2y) / (self.x4 - self.x2 * self.x2)) / ((self.x3 - self.x2 * self.x) / (self.x4 - self.x2 * self.x2) - (self.x2 - self.x * self.x) / (self.x3 - self.x2 * self.x))
-        a = (self.x2y - self.x2 * self.y - (self.x3 - self.x * self.x2) * b) / (self.x4 - self.x2 * self.x2)
-        c = self.y - self.x2 * a - self.x * b
-        return [a, b, c]
+        self.b = ((self.x * self.y - self.xy) / (self.x3 - self.x2 * self.x) - (self.x2 * self.y - self.x2y) / (self.x4 - self.x2 * self.x2)) / ((self.x3 - self.x2 * self.x) / (self.x4 - self.x2 * self.x2) - (self.x2 - self.x * self.x) / (self.x3 - self.x2 * self.x))
+        self.a = (self.x2y - self.x2 * self.y - (self.x3 - self.x * self.x2) * self.b) / (self.x4 - self.x2 * self.x2)
+        self.c = self.y - self.x2 * self.a - self.x * self.b
+
+        return [self.a, self.b, self.c]
+
+    def val(self, x: int):
+        return self.a * x * x + self.b * x + self.c
 
 
-__all__ = ["linePredictor", "polyfit1d", "polyfit2d", "Polyfit2d"]
+def shift(abc: List[float], x0: int, d: float, direction: bool) -> List[float]:
+    """将拟合得到的抛物线延x0处的切线的垂线平移一段距离
+
+    Args:
+        abc (List[float]): 原抛物线的3个参数 [a, b, c] -> y = a * x * x + b * x + c
+        x0 (int): 原抛物线上目标点的横坐标
+        d (float): 所要平移的距离
+        direction (bool): 平移方向
+
+    Returns:
+        List[float]: 新抛物线的3个参数
+    """
+    A, B, C = abc
+    t = (B - A * x0 * x0 - B * x0 - C) / x0
+    q = d / sqrt(t * t + 1)
+    if direction:
+        q = -q
+    p = t * q
+    return [A, B - 2 * A * p, A * p * p - B * p + C + q]
+
+
+__all__ = ["linePredictor", "polyfit1d", "polyfit2d", "Polyfit2d", "shift"]
 

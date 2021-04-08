@@ -58,7 +58,7 @@ class linePredictor:
         return t * t / (self.a * self.a + self.b * self.b)
 
 
-def polyfit1d(X: List[float], Y: List[float]) -> Tuple[float]:
+def polyfit1d(X: List[float], Y: List[float]) -> List[float]:
     sum_x = 0.0
     sum_y = 0.0
     sum_x2 = 0.0
@@ -78,10 +78,10 @@ def polyfit1d(X: List[float], Y: List[float]) -> Tuple[float]:
 
     a = (sum_xy - sum_x * sum_y) / (sum_x2 - sum_x * sum_x)
     b = (sum_x2 * sum_y - sum_x * sum_xy) / (sum_x2 - sum_x * sum_x)
-    return a, b
+    return [a, b]
 
 
-def polyfit2d(X: List[float], Y: List[float]) -> Tuple[float]:
+def polyfit2d(X: List[float], Y: List[float]) -> List[float]:
     sum_x = 0.0
     sum_y = 0.0
     sum_x2 = 0.0
@@ -113,8 +113,41 @@ def polyfit2d(X: List[float], Y: List[float]) -> Tuple[float]:
     a = (sum_x2y - sum_x2 * sum_y - (sum_x3 - sum_x * sum_x2) * b) / (sum_x4 - sum_x2 * sum_x2)
     c = sum_y - sum_x2 * a - sum_x * b
 
-    return (a, b, c)
+    return [a, b, c]
 
 
-__all__ = ["linePredictor", "polyfit1d", "polyfit2d"]
+class Polyfit2d:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.n = 0
+        self.x = self.y = self.x2 = self.x3 = self.x4 = self.xy = self.x2y = 0
+
+    def update(self, x, y):
+        self.n += 1
+        self.x += x
+        self.y += y
+        x2 = x * x
+        self.x2 += x2
+        self.x3 += x2 * x
+        self.x4 += x2 * x2
+        self.xy += x * y
+        self.x2y += x2 * y
+
+    def fit(self) -> List[float]:
+        self.x /= self.n
+        self.y /= self.n
+        self.x2 /= self.n
+        self.x3 /= self.n
+        self.x4 /= self.n
+        self.xy /= self.n
+        self.x2y /= self.n
+        b = ((self.x * self.y - self.xy) / (self.x3 - self.x2 * self.x) - (self.x2 * self.y - self.x2y) / (self.x4 - self.x2 * self.x2)) / ((self.x3 - self.x2 * self.x) / (self.x4 - self.x2 * self.x2) - (self.x2 - self.x * self.x) / (self.x3 - self.x2 * self.x))
+        a = (self.x2y - self.x2 * self.y - (self.x3 - self.x * self.x2) * b) / (self.x4 - self.x2 * self.x2)
+        c = self.y - self.x2 * a - self.x * b
+        return [a, b, c]
+
+
+__all__ = ["linePredictor", "polyfit1d", "polyfit2d", "Polyfit2d"]
 

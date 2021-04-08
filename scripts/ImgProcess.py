@@ -130,8 +130,9 @@ class ImgProcess:
 
     def fitLine(self) -> List[np.array]:
         count = [0] * 2
+        fit = Polyfit2d()
         for u in range(2):
-            x, y = [], []
+            fit.reset()
             hasValided = False
             for t, i in enumerate(range(self.N - (self.H >> 1), -1, -self.H)):
                 if hasValided and not self.valid[u][t] and self.sum[u][t] < self.Sum:
@@ -143,11 +144,10 @@ class ImgProcess:
                     hasValided = True
                     i_, j_ = map(round, axisTransform(i, self.edges[u][t], self.PERMAT))
                     self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])
-                    x.append(i_)
-                    y.append(j_)
-            count[u] = len(x)
-            if len(x) > 3:
-                self.res[u] = polyfit2d(x, y)
+                    fit.update(i_, j_)
+            count[u] = fit.n
+            if fit.n > 3:
+                self.res[u] = fit.fit()
                 px = list(range(self.N_))
                 py = np.polyval(self.res[u], px)
                 self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)

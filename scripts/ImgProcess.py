@@ -129,6 +129,7 @@ class ImgProcess:
         print(self.Sum)
 
     def fitLine(self) -> List[np.array]:
+        count = [0] * 2
         for u in range(2):
             x, y = [], []
             hasValided = False
@@ -144,11 +145,23 @@ class ImgProcess:
                     self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])
                     x.append(i_)
                     y.append(j_)
+            count[u] = len(x)
             if len(x) > 3:
                 self.res[u] = polyfit2d(x, y)
                 px = list(range(self.N_))
                 py = np.polyval(self.res[u], px)
                 self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+        if max(count) < 3:
+            return
+        if count[0] > count[1]:
+            tmp = list(self.res[0])
+            tmp[2] += 13.5
+        else:
+            tmp = list(self.res[1])
+            tmp[2] -= 13.5
+        px = list(range(self.N_))
+        py = np.polyval(tmp, px)
+        self.PerShow.polylines(px, py, (255, 0, 127), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
 
     def work(self):
         self.getEdge()

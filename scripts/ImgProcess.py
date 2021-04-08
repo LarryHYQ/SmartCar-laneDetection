@@ -114,6 +114,21 @@ class ImgProcess:
         return Pos // dSum, dSum, Sum
 
     def getEdge(self):
+        """搜线的主要部分，目前实现的是两侧的线分别搜的方法
+
+        1 首先找到所要搜的边的最低有效位置
+            1.1 首先从底线中心开始，每 self.H 行向上搜一行
+            对于每一行，横着每个几个点用累计滑动平均值 (horiCMA) 的差是否超过一个阈值来判断是否碰到黑点：
+                1.1.1 如果碰到黑点，则使用 rectEdge() 来判断这个黑点是否满足要求，如果满足要求则进入边缘生长搜线；
+                1.1.2 如果不满足要求，或一直没有碰到黑点，则跳过这一行。
+            1.2 向上同样使用累计滑动平均值 (vertCMA) 来判断是否撞到黑点，如果撞到则说明碰到了另一侧的赛道 (对应的情况为大弯道丢一侧线)。
+
+        2 在找到最低有效位置后，每 self.H 行先使用一阶最小二乘拟合最近的4个点来预测这一次搜线小框的位置，再用 rectEdge() 来确定这一个
+        小框内的边线位置，如果这一个小框内的梯度平方总和 dSum 大于指定阈值，且与前两个点形成的向量夹角小于60°时才被认定为有效，否则舍弃这个点。
+            2.1 这个步骤里并没有对于 dSum 小于阈值时的情况 (全黑或全白) 进行特判，而是直接跳过这个点，同时记录下所有有效点的框内灰度总和，
+            取平均后在拟合的步骤里再把这些无效点的框内灰度和 Sum 与所有有效点的灰度平均值 self.Sum 进行比较，如果小于平均值过多则判定为全黑，
+            终止扩展(直接break)，否则视为十字路口丢线，继续扩展。
+        """
         self.resetState()
         n = S = 0
         vertCMA = CMA()
@@ -169,6 +184,12 @@ class ImgProcess:
         print(self.Sum)
 
     def fitLine(self) -> List[np.array]:
+        """选取两侧边线中有效点多的一侧进行拟合，拟合后在曲线最下面的点处延该点切线的垂线方向将曲线平移半个赛道的宽度，
+        得到的就是赛道中线的抛物线方程。
+
+        Returns:
+            List[np.array]: 抛物线的参数 [a, b, c] -> y = a * x * x + b * x + c
+        """
         count = [0] * 2
         fit = Polyfit2d()
         for u in range(2):
@@ -195,7 +216,11 @@ class ImgProcess:
             return
 
         tmp, u = (self.res[0], 0) if count[0] > count[1] else (self.res[1], 1)
-        tmp = shift(tmp, 120, 13.5, u)
+        print(u)
+        print(tmp)
+        tmp = shift(tmp, 120, 15.5, u)
+        print(np.polyval(tmp, 120))
+        print(tmp)
         px = list(range(self.N_))
         py = np.polyval(tmp, px)
         self.PerShow.polylines(px, py, (255, 0, 127), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)

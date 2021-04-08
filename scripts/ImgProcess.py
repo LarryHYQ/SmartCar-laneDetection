@@ -26,14 +26,21 @@ class ImgProcess:
         self.firstFrame = True
         self.predictor = [linePredictor(4), linePredictor(4)]
         self.applyConfig()
+        self.resetState()
 
     def setImg(self, img: np.ndarray) -> None:
+        """设置当前需要处理的图像
+
+        Args:
+            img (np.ndarray): 使用 cv2.imread(xxx, 0) 读入的灰度图
+        """
         img = cv2.resize(img[self.CUT :, :], (self.M, self.N))
         self.img = img.tolist()
         self.SrcShow = ZoomedImg(img, self.SRCZOOM)
         self.PerShow = ZoomedImg(transfomImg(img, self.PERMAT, self.N, self.M, self.N_, self.M_, self.I_SHIFT, self.J_SHIFT), self.PERZOOM)
 
     def applyConfig(self) -> None:
+        "从main窗口获取图像处理所需参数"
         self.N, self.M = self.Config["N"], self.Config["M"]  # 图片的高和宽
         self.CUT = self.Config["CUT"]  # 裁剪最上面的多少行
         self.NOISE = self.Config["NOISE"]  # 灰度梯度最小有效值
@@ -48,18 +55,51 @@ class ImgProcess:
         self.PERZOOM = self.Config["PERZOOM"]  #
         self.PERMAT = getPerMat(self.Config["SRCARR"], self.Config["PERARR"])  # 逆透视变换矩阵
         self.REPMAT = getPerMat(self.Config["PERARR"], self.Config["SRCARR"])  # 反向逆透视变换矩阵
-        self.resetState()
 
-    def resetState(self):
+    def resetState(self) -> None:
+        "重置状态"
         count = self.N // self.H
         self.edges = [[-1] * count for _ in range(2)]
         self.valid = [[False] * count for _ in range(2)]
         self.sum = [[0] * count for _ in range(2)]
 
     def getConstrain(self, j: int) -> int:
+        """让小框框的横坐标保证处在图片内，防止数组越界
+
+        Args:
+            j (int): 需要开始搜索的列数
+
+        Returns:
+            int: 保证合法的开始搜索的列数
+        """
         return min(max(j, self.PADDING), self.M - self.W - self.PADDING)
 
     def rectEdge(self, I: int, J: int, right: bool, H: int, W: int) -> Tuple[int]:
+        """在小框框内搜索边线，具体做法是把每一个位置左右两边灰度的差值 (图像梯度)的平方
+        作为权重乘以相应位置的横坐标累加到变量 Pos 上，同时把灰度差直接累加到dSum上
+        (用平方是为了效果更加明显)，最终边界点的横坐标就可以通过 Pos // dSum 得到。
+
+        如果边界点很明显(或小框选取的位置很合适)，得到的dSum值就会很大，而这个值越大，
+        说明得到的边界点越可信；相反，如果框框里大多数点都是黑点或都是白点，得到的dSum
+        就会很小，说明这个边界点不可信。在下方 getEdge() 获取边界点时就会通过这个特性
+        来排除不合适的点。
+
+        Sum 是用来存储整个框框里所有像素灰度总和的变量，为的是在 dSum 较小(即判断为丢线)时，
+        判断究竟是撞到了边界(几乎全黑)还是十字路口的丢边(几乎全白)：如果是撞到边界则停止向上
+        搜边，如果是十字路口则要继续向上扩展。
+
+        Args:
+            I (int): 小框框左上角的行数
+            J (int): 小框框左上角的列数
+            right (bool): 如果为True则搜索右边界，反之搜索左边界
+            H (int): 小框框的高度
+            W (int): 小框框的宽度
+
+        Returns:
+            j (int): 得到的边界点横坐标
+            dSum (int): 框框内像素灰度梯度平方的总和
+            Sum (int): 框框内像素灰度的总和
+        """
         Pos, dSum, Sum = 0, 1, 0
         for i in range(I, I + H):
             for j in range(J + 1, J + W - 1):

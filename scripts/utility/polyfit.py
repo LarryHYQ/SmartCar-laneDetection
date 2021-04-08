@@ -117,14 +117,16 @@ def polyfit2d(X: List[float], Y: List[float]) -> List[float]:
 
 
 class Polyfit2d:
-    def __init__(self):
+    "二次曲线拟合类，通过 update() 添加数据，并通过 fit() 进行拟合"
+
+    def __init__(self) -> None:
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.n = 0
         self.x = self.y = self.x2 = self.x3 = self.x4 = self.xy = self.x2y = 0
 
-    def update(self, x, y):
+    def update(self, x: int, y: int):
         self.n += 1
         self.x += x
         self.y += y

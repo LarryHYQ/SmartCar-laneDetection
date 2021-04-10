@@ -132,11 +132,11 @@ class ImgProcess:
         n = S = 0
         vertCMA = CMA()
         horiCMA = CMA()
+        MIDJ = self.M >> 1
         for u in range(2):
             print()
             print(" t  j   dSum   Sum")
             hasTracedBottom = False
-            MIDJ = self.M >> 1
             vertCMA.reset(self.img[self.N - self.H][MIDJ])
             for t, i in enumerate(range(self.N - self.H, self.CUT - 1, -self.H)):
                 if not hasTracedBottom:

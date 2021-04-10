@@ -7,7 +7,7 @@ from typing import List, Tuple
 from math import sqrt
 
 
-class linePredictor:
+class LinePredictor:
     def __init__(self, count) -> None:
         self.count = count
         self.reset()
@@ -179,5 +179,5 @@ def shift(abc: List[float], x0: int, d: float, direction: bool) -> List[float]:
     return [A, B - 2 * A * p, A * p * p - B * p + C + q]
 
 
-__all__ = ["linePredictor", "polyfit1d", "polyfit2d", "Polyfit2d", "shift"]
+__all__ = ["LinePredictor", "polyfit1d", "polyfit2d", "Polyfit2d", "shift"]
 

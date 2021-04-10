@@ -24,7 +24,7 @@ class ImgProcess:
         self.Sum = 0
         self.res = [None] * 2
         self.firstFrame = True
-        self.predictor = [linePredictor(4), linePredictor(4)]
+        self.predictor = [LinePredictor(4), LinePredictor(4)]
         self.applyConfig()
         self.resetState()
 

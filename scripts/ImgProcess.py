@@ -34,7 +34,6 @@ class ImgProcess:
         Args:
             img (np.ndarray): 使用 cv2.imread(xxx, 0) 读入的灰度图
         """
-        img = cv2.resize(img[self.CUT :, :], (self.M, self.N))
         self.img = img.tolist()
         self.SrcShow = ZoomedImg(img, self.SRCZOOM)
         self.PerShow = ZoomedImg(transfomImg(img, self.PERMAT, self.N, self.M, self.N_, self.M_, self.I_SHIFT, self.J_SHIFT), self.PERZOOM)
@@ -58,7 +57,7 @@ class ImgProcess:
 
     def resetState(self) -> None:
         "重置状态"
-        count = self.N // self.H
+        count = (self.N - self.CUT) // self.H
         self.edges = [[-1] * count for _ in range(2)]
         self.valid = [[False] * count for _ in range(2)]
         self.sum = [[0] * count for _ in range(2)]
@@ -137,16 +136,17 @@ class ImgProcess:
             print()
             print(" t  j   dSum   Sum")
             hasTracedBottom = False
-            vertCMA.reset(self.img[self.N - self.H][self.M >> 1])
-            for t, i in enumerate(range(self.N - self.H, -1, -self.H)):
+            MIDJ = self.M >> 1
+            vertCMA.reset(self.img[self.N - self.H][MIDJ])
+            for t, i in enumerate(range(self.N - self.H, self.CUT - 1, -self.H)):
                 if not hasTracedBottom:
-                    self.SrcShow.point((i, self.M >> 1), (127, 255, 127), 6)
-                    if i <= 2 or abs(vertCMA.v - self.img[i][self.M >> 1]) > 20:
-                        self.SrcShow.point((i, self.M >> 1), (127, 255, 127), 8)
+                    self.SrcShow.point((i, MIDJ), (127, 255, 127), 6)
+                    if i <= 2 or abs(vertCMA.v - self.img[i][MIDJ]) > 20:
+                        self.SrcShow.point((i, MIDJ), (127, 255, 127), 8)
                         break
-                    vertCMA.update(self.img[i][self.M >> 1])
-                    horiCMA.reset(self.img[i][self.M >> 1])
-                    for j in range(self.M >> 1, self.M - self.PADDING, 10) if u else range(self.M >> 1, self.PADDING - 1, -10):
+                    vertCMA.update(self.img[i][MIDJ])
+                    horiCMA.reset(self.img[i][MIDJ])
+                    for j in range(MIDJ, self.M - self.PADDING, 10) if u else range(MIDJ, self.PADDING - 1, -10):
                         if abs(horiCMA.v - self.img[i][j]) > 20:
                             self.SrcShow.point((i, j), (127, 0, 127), 8)
                             j -= self.W >> 1
@@ -195,10 +195,10 @@ class ImgProcess:
         for u in range(2):
             fit.reset()
             hasValided = False
-            for t, i in enumerate(range(self.N - (self.H >> 1), -1, -self.H)):
+            for t, i in enumerate(range(self.N - (self.H >> 1), self.CUT - 1, -self.H)):
                 if hasValided and not self.valid[u][t] and self.sum[u][t] < self.Sum:
                     self.SrcShow.point((i, self.edges[u][t]), colors[2 + u ^ 1])
-                    for t in range(t, self.N // self.H):
+                    for t in range(t, (self.N - self.CUT) // self.H):
                         self.valid[u][t] = False
                     break
                 if self.valid[u][t]:
@@ -218,7 +218,7 @@ class ImgProcess:
         tmp, u = (self.res[0], 0) if count[0] > count[1] else (self.res[1], 1)
         print(u)
         print(tmp)
-        tmp = shift(tmp, 120, 15.5, u)
+        tmp = shift(tmp, 110, 15, u)
         print(np.polyval(tmp, 120))
         print(tmp)
         px = list(range(self.N_))

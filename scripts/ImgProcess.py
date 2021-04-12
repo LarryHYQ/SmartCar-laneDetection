@@ -70,39 +70,40 @@ class ImgProcess:
         self.edges = [[-1] * count for _ in range(2)]
         self.valid = [[False] * count for _ in range(2)]
         self.sum = [[0] * count for _ in range(2)]
+        self.whiteCMA = CMA()
 
     def getColumn(self) -> None:
+        "获取搜索中线的列数"
         I = self.N - 1 - self.H
         MIDJ = self.M >> 1
-        cma = CMA(self.img[I][MIDJ])
+        self.whiteCMA.reset(self.img[I][MIDJ])
         STEP = self.W >> 2
 
         L, R = self.PADDING, self.M - self.PADDING
-        self.SrcShow.point((I, MIDJ), (255, 0, 0), 5)
+        # self.SrcShow.point((I, MIDJ), (255, 0, 0), 5)
         L = R = MIDJ
-        while L - STEP >= self.PADDING and cma.val() - self.img[I][L - STEP] < 20:
+        while L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[I][L - STEP] < 20:
             L -= self.W >> 2
-            cma.update(self.img[I][L])
-            self.SrcShow.point((I, L))
-        while R + STEP < self.M - self.PADDING and cma.val() - self.img[I][R + STEP] < 20:
+            self.whiteCMA.update(self.img[I][L])
+            # self.SrcShow.point((I, L))
+        while R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[I][R + STEP] < 20:
             R += self.W >> 2
-            cma.update(self.img[I][R])
-            self.SrcShow.point((I, R))
+            self.whiteCMA.update(self.img[I][R])
+            # self.SrcShow.point((I, R))
 
-        pos = sum = 0
+        pos = Sum = 0
         for j in range(L, R + 1, self.W >> 2):
-            color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
+            # color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
             i = I
-            while i - self.H > self.CUT and cma.val() - self.img[i - self.H][j] < 20:
-                cma.update(self.img[I][j])
+            while i - self.H > self.CUT and self.whiteCMA.val() - self.img[i - self.H][j] < 20:
+                self.whiteCMA.update(self.img[I][j])
                 i -= self.H
-                self.SrcShow.point((i, j), color)
-            cur = 1 << ((self.N - i) >> 2)  # uint32
+                # self.SrcShow.point((i, j), color)
+            cur = 1 << ((self.N - i) >> 1)  # uint64
             pos += cur * j
-            sum += cur
-        J = pos // sum
-        print(J)
-        self.SrcShow.point((50, J), r=8)
+            Sum += cur
+        self.J = pos // Sum
+        self.SrcShow.line((0, self.J), (self.N - 1, self.J))
 
     def getConstrain(self, j: int) -> int:
         """让小框框的横坐标保证处在图片内，防止数组越界
@@ -125,9 +126,6 @@ class ImgProcess:
         就会很小，说明这个边界点不可信。在下方 getEdge() 获取边界点时就会通过这个特性
         来排除不合适的点。
 
-        Sum 是用来存储整个框框里所有像素灰度总和的变量，为的是在 dSum 较小(即判断为丢线)时，
-        判断究竟是撞到了边界(几乎全黑)还是十字路口的丢边(几乎全白)：如果是撞到边界则停止向上
-        搜边，如果是十字路口则要继续向上扩展。
 
         Args:
             I (int): 小框框左上角的行数
@@ -139,12 +137,10 @@ class ImgProcess:
         Returns:
             j (int): 得到的边界点横坐标
             dSum (int): 框框内像素灰度梯度平方的总和
-            Sum (int): 框框内像素灰度的总和
         """
-        Pos, dSum, Sum = 0, 1, 0
+        Pos, dSum = 0, 1
         for i in range(I, I + H):
             for j in range(J + 1, J + W - 1):
-                Sum += self.img[i][j]
                 cur = self.img[i][j + 1] - self.img[i][j - 1]
                 if right:
                     cur = -cur
@@ -152,7 +148,7 @@ class ImgProcess:
                     cur *= cur
                     Pos += cur * j
                     dSum += cur
-        return Pos // dSum, dSum, Sum
+        return Pos // dSum, dSum
 
     def getEdge(self):
         """搜线的主要部分，目前实现的是两侧的线分别搜的方法
@@ -170,7 +166,7 @@ class ImgProcess:
             取平均后在拟合的步骤里再把这些无效点的框内灰度和 Sum 与所有有效点的灰度平均值 self.Sum 进行比较，如果小于平均值过多则判定为全黑，
             终止扩展(直接break)，否则视为十字路口丢线，继续扩展。
         """
-        self.resetState()
+
         n = S = 0
         vertCMA = CMA()
         horiCMA = CMA()
@@ -268,6 +264,7 @@ class ImgProcess:
         self.PerShow.polylines(px, py, (255, 0, 127), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
 
     def work(self):
+        self.resetState()
         self.getColumn()
         # self.getEdge()
         # self.fitLine()

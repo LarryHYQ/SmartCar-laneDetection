@@ -44,6 +44,9 @@ class ZoomedImg:
         """
         cv2.circle(self.canvas, tuple(v * self.zoom for v in reversed(pt)), r, color, -1)
 
+    def line(self, p1: Tuple[int], p2: Tuple[int], color: Tuple[int] = (0, 0, 255), thickness: int = 2) -> None:
+        cv2.line(self.canvas, tuple(v * self.zoom for v in reversed(p1)), tuple(v * self.zoom for v in reversed(p2)), color, thickness)
+
     def polylines(self, pi: List[int], pj: List[int], color: Tuple[int], thickness: int = 2, i_shift: int = 0, j_shift: int = 0, closed: bool = False):
         """在图像画布上画出函数图像
 

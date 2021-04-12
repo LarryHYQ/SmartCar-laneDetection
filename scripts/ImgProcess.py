@@ -72,154 +72,68 @@ class ImgProcess:
         self.sum = [[0] * count for _ in range(2)]
         self.whiteCMA = CMA()
 
+    def searchRow(self, i: int, j: int) -> List[int]:
+        L = R = j
+        self.SrcShow.point((i, j), (255, 0, 0), 5)
+        while L - self.W >= self.PADDING and self.whiteCMA.val() - self.img[i][L - self.W] < 20:
+            L -= self.W
+            self.whiteCMA.update(self.img[i][L])
+            self.SrcShow.point((i, L))
+        while R + self.W < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + self.W] < 20:
+            R += self.W
+            self.whiteCMA.update(self.img[i][R])
+            self.SrcShow.point((i, R))
+        return [L, R]
+
+    def searchCol(self, i: int, j: int) -> List[int]:
+        color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
+        while i - self.H > self.CUT and self.whiteCMA.val() - self.img[i - self.H][j] < 20:
+            i -= self.H
+            self.SrcShow.point((i, j), color)
+        return i
+
     def getColumn(self) -> None:
         "获取搜索中线的列数"
-        I = self.N - 1 - self.H
+        self.I = self.N - 1
         MIDJ = self.M >> 1
-        self.whiteCMA.reset(self.img[I][MIDJ])
-        STEP = self.W >> 2
+        LL = MIDJ - (MIDJ - self.PADDING) // self.W * self.W
+        RR = MIDJ + (self.M - self.PADDING - MIDJ) // self.W * self.W
+        print(LL, RR)
+        self.whiteCMA.reset(self.img[self.I][MIDJ])
 
-        L, R = self.PADDING, self.M - self.PADDING
-        # self.SrcShow.point((I, MIDJ), (255, 0, 0), 5)
-        L = R = MIDJ
-        while L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[I][L - STEP] < 20:
-            L -= self.W >> 2
-            self.whiteCMA.update(self.img[I][L])
-            # self.SrcShow.point((I, L))
-        while R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[I][R + STEP] < 20:
-            R += self.W >> 2
-            self.whiteCMA.update(self.img[I][R])
-            # self.SrcShow.point((I, R))
+        Flag = 0
+        while self.I - self.H > self.CUT:
+            self.I -= self.H
+            self.SrcShow.point((self.I, MIDJ), (255, 0, 0), 5)
+            L, R = self.searchRow(self.I, MIDJ)
+            if L != LL:
+                if Flag & 1:
+                    break
+                Flag |= 1
+            if R != RR:
+                if Flag & 2:
+                    break
+                Flag |= 2
+            self.SrcShow.point((self.I, R))
 
         pos = Sum = 0
-        for j in range(L, R + 1, self.W >> 2):
-            # color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
-            i = I
-            while i - self.H > self.CUT and self.whiteCMA.val() - self.img[i - self.H][j] < 20:
-                self.whiteCMA.update(self.img[I][j])
-                i -= self.H
-                # self.SrcShow.point((i, j), color)
+        for j in range(L, R + 1, self.W):
+            i = self.searchCol(self.I, j)
             cur = 1 << ((self.N - i) >> 1)  # uint64
             pos += cur * j
             Sum += cur
         self.J = pos // Sum
         self.SrcShow.line((0, self.J), (self.N - 1, self.J))
 
-    def getConstrain(self, j: int) -> int:
-        """让小框框的横坐标保证处在图片内，防止数组越界
-
-        Args:
-            j (int): 需要开始搜索的列数
-
-        Returns:
-            int: 保证合法的开始搜索的列数
-        """
-        return min(max(j, self.PADDING), self.M - self.W - self.PADDING)
-
-    def rectEdge(self, I: int, J: int, right: bool, H: int, W: int) -> Tuple[int]:
-        """在小框框内搜索边线，具体做法是把每一个位置左右两边灰度的差值 (图像梯度)的平方
-        作为权重乘以相应位置的横坐标累加到变量 Pos 上，同时把灰度差直接累加到dSum上
-        (用平方是为了效果更加明显)，最终边界点的横坐标就可以通过 Pos // dSum 得到。
-
-        如果边界点很明显(或小框选取的位置很合适)，得到的dSum值就会很大，而这个值越大，
-        说明得到的边界点越可信；相反，如果框框里大多数点都是黑点或都是白点，得到的dSum
-        就会很小，说明这个边界点不可信。在下方 getEdge() 获取边界点时就会通过这个特性
-        来排除不合适的点。
-
-
-        Args:
-            I (int): 小框框左上角的行数
-            J (int): 小框框左上角的列数
-            right (bool): 如果为True则搜索右边界，反之搜索左边界
-            H (int): 小框框的高度
-            W (int): 小框框的宽度
-
-        Returns:
-            j (int): 得到的边界点横坐标
-            dSum (int): 框框内像素灰度梯度平方的总和
-        """
-        Pos, dSum = 0, 1
-        for i in range(I, I + H):
-            for j in range(J + 1, J + W - 1):
-                cur = self.img[i][j + 1] - self.img[i][j - 1]
-                if right:
-                    cur = -cur
-                if cur > self.NOISE:
-                    cur *= cur
-                    Pos += cur * j
-                    dSum += cur
-        return Pos // dSum, dSum
-
     def getEdge(self):
-        """搜线的主要部分，目前实现的是两侧的线分别搜的方法
-
-        1 首先找到所要搜的边的最低有效位置
-            1.1 首先从底线中心开始，每 self.H 行向上搜一行
-            对于每一行，横着每个几个点用累计滑动平均值 (horiCMA) 的差是否超过一个阈值来判断是否碰到黑点：
-                1.1.1 如果碰到黑点，则使用 rectEdge() 来判断这个黑点是否满足要求，如果满足要求则进入边缘生长搜线；
-                1.1.2 如果不满足要求，或一直没有碰到黑点，则跳过这一行。
-            1.2 向上同样使用累计滑动平均值 (vertCMA) 来判断是否撞到黑点，如果撞到则说明碰到了另一侧的赛道 (对应的情况为大弯道丢一侧线)。
-
-        2 在找到最低有效位置后，每 self.H 行先使用一阶最小二乘拟合最近的4个点来预测这一次搜线小框的位置，再用 rectEdge() 来确定这一个
-        小框内的边线位置，如果这一个小框内的梯度平方总和 dSum 大于指定阈值，且与前两个点形成的向量夹角小于45°时才被认定为有效，否则舍弃这个点。
-            2.1 这个步骤里并没有对于 dSum 小于阈值时的情况 (全黑或全白) 进行特判，而是直接跳过这个点，同时记录下所有有效点的框内灰度总和，
-            取平均后在拟合的步骤里再把这些无效点的框内灰度和 Sum 与所有有效点的灰度平均值 self.Sum 进行比较，如果小于平均值过多则判定为全黑，
-            终止扩展(直接break)，否则视为十字路口丢线，继续扩展。
-        """
-
-        n = S = 0
-        vertCMA = CMA()
-        horiCMA = CMA()
-        MIDJ = self.M >> 1
-        for u in range(2):
-            print()
-            print(" t  j   dSum   Sum")
-            hasTracedBottom = False
-            vertCMA.reset(self.img[self.N - self.H][MIDJ])
-            for t, i in enumerate(range(self.N - self.H, self.CUT - 1, -self.H)):
-                if not hasTracedBottom:
-                    self.SrcShow.point((i, MIDJ), (127, 255, 127), 6)
-                    if i <= 2 or abs(vertCMA.v - self.img[i][MIDJ]) > 20:
-                        self.SrcShow.point((i, MIDJ), (127, 255, 127), 8)
-                        break
-                    vertCMA.update(self.img[i][MIDJ])
-                    horiCMA.reset(self.img[i][MIDJ])
-                    for j in range(MIDJ, self.M - self.PADDING, 10) if u else range(MIDJ, self.PADDING - 1, -10):
-                        if abs(horiCMA.v - self.img[i][j]) > 20:
-                            self.SrcShow.point((i, j), (127, 0, 127), 8)
-                            j -= self.W >> 1
-                            j = self.getConstrain(j)
-                            j_, dSum_, _ = self.rectEdge(i - self.H, j, u, self.H << 1, self.W)
-                            if dSum_ >= self.DERI_THRESHOLD << 1:
-                                self.predictor[u].reset(j_)
-                                hasTracedBottom = True
-                            break
-
-                if hasTracedBottom:
-                    J = self.predictor[u].val(i)
-                    if self.predictor[u].n > 2 and ((u and J > self.M) or (not u and J < 0)):
-                        self.valid[u][t] = False
-                        break
-                    j = self.getConstrain(J - (self.W >> 1))
-                    self.edges[u][t], dSum, self.sum[u][t] = self.rectEdge(i, j, u, self.H, self.W)
-                    print("%2d %3d %6d %5d" % (t, self.edges[u][t], dSum, self.sum[u][t]))
-
-                    if not (dSum > self.DERI_THRESHOLD and self.predictor[u].angleCheck(i, self.edges[u][t])):
-                        self.valid[u][t] = False
-                        self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[2 + u])
-                        self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), (0, 0, 0))
-                    else:
-                        self.predictor[u].update(i, self.edges[u][t])
-                        self.valid[u][t] = True
-                        S += self.sum[u][t]
-                        n += 1
-
-                        self.SrcShow.rectangle((i, j), (i + self.H, j + self.W), colors[u])
-                        self.SrcShow.point((i + (self.H >> 1), self.edges[u][t]), colors[u ^ 1])
-        if n:
-            self.Sum = S // n
-        self.firstFrame = False
-        print(self.Sum)
+        I = self.I
+        while I > self.CUT and self.whiteCMA.val() - self.img[I][self.J] < 20:
+            L = R = self.searchRow(I, self.J)
+            # self.SrcShow.rectangle((I_, L), (I_ + self.H, L + self.W))
+            # self.SrcShow.rectangle((I_, R), (I_ + self.H, R + self.W))
+            # self.SrcShow.point((I, L))
+            # self.SrcShow.point((I, R))
+            I -= self.H
 
     def fitLine(self) -> List[np.array]:
         """选取两侧边线中有效点多的一侧进行拟合，拟合后在曲线最下面的点处延该点切线的垂线方向将曲线平移半个赛道的宽度，
@@ -268,6 +182,51 @@ class ImgProcess:
         self.getColumn()
         # self.getEdge()
         # self.fitLine()
+
+    def getConstrain(self, j: int) -> int:
+        """让小框框的横坐标保证处在图片内，防止数组越界
+
+        Args:
+            j (int): 需要开始搜索的列数
+
+        Returns:
+            int: 保证合法的开始搜索的列数
+        """
+        return min(max(j, self.PADDING), self.M - self.W - self.PADDING)
+
+    def rectEdge(self, I: int, J: int, right: bool, H: int, W: int) -> Tuple[int]:
+        """在小框框内搜索边线，具体做法是把每一个位置左右两边灰度的差值 (图像梯度)的平方
+        作为权重乘以相应位置的横坐标累加到变量 Pos 上，同时把灰度差直接累加到dSum上
+        (用平方是为了效果更加明显)，最终边界点的横坐标就可以通过 Pos // dSum 得到。
+
+        如果边界点很明显(或小框选取的位置很合适)，得到的dSum值就会很大，而这个值越大，
+        说明得到的边界点越可信；相反，如果框框里大多数点都是黑点或都是白点，得到的dSum
+        就会很小，说明这个边界点不可信。在下方 getEdge() 获取边界点时就会通过这个特性
+        来排除不合适的点。
+
+
+        Args:
+            I (int): 小框框左上角的行数
+            J (int): 小框框左上角的列数
+            right (bool): 如果为True则搜索右边界，反之搜索左边界
+            H (int): 小框框的高度
+            W (int): 小框框的宽度
+
+        Returns:
+            j (int): 得到的边界点横坐标
+            dSum (int): 框框内像素灰度梯度平方的总和
+        """
+        Pos, dSum = 0, 1
+        for i in range(I, I + H):
+            for j in range(J + 1, J + W - 1):
+                cur = self.img[i][j + 1] - self.img[i][j - 1]
+                if right:
+                    cur = -cur
+                if cur > self.NOISE:
+                    cur *= cur
+                    Pos += cur * j
+                    dSum += cur
+        return Pos // dSum, dSum
 
     def show(self):
         self.SrcShow.show("src")

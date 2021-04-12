@@ -146,14 +146,33 @@ class Polyfit2d:
         self.x4 /= self.n
         self.xy /= self.n
         self.x2y /= self.n
-        self.b = ((self.x * self.y - self.xy) / (self.x3 - self.x2 * self.x) - (self.x2 * self.y - self.x2y) / (self.x4 - self.x2 * self.x2)) / ((self.x3 - self.x2 * self.x) / (self.x4 - self.x2 * self.x2) - (self.x2 - self.x * self.x) / (self.x3 - self.x2 * self.x))
-        self.a = (self.x2y - self.x2 * self.y - (self.x3 - self.x * self.x2) * self.b) / (self.x4 - self.x2 * self.x2)
-        self.c = self.y - self.x2 * self.a - self.x * self.b
-
-        return [self.a, self.b, self.c]
+        B = ((self.x * self.y - self.xy) / (self.x3 - self.x2 * self.x) - (self.x2 * self.y - self.x2y) / (self.x4 - self.x2 * self.x2)) / ((self.x3 - self.x2 * self.x) / (self.x4 - self.x2 * self.x2) - (self.x2 - self.x * self.x) / (self.x3 - self.x2 * self.x))
+        A = (self.x2y - self.x2 * self.y - (self.x3 - self.x * self.x2) * B) / (self.x4 - self.x2 * self.x2)
+        C = self.y - self.x2 * A - self.x * B
+        self.res = [A, B, C]
+        return [A, B, C]
 
     def val(self, x: int):
-        return self.a * x * x + self.b * x + self.c
+        A, B, C = self.res
+        return A * x * x + B * x + C
+
+    def shift(self, x0: int, d: float, direction: bool) -> List[float]:
+        A, B, C = self.res
+        t = (B - A * x0 * x0 - B * x0 - C) / x0
+        q = d / sqrt(t * t + 1)
+        if direction:
+            q = -q
+        p = t * q
+        if 2 * A * x0 + B < 0:
+            p = -p
+        self.res = [A, B - 2 * A * p, A * p * p - B * p + C + q]
+        return self.res
+
+    def extreme(self) -> List[float]:
+        A, B, C = self.res
+        x = -B / (2 * A)
+        y = self.val(x)
+        return [x, y]
 
 
 def shift(abc: List[float], x0: int, d: float, direction: bool) -> List[float]:

@@ -4,8 +4,16 @@ from collections import deque
 from typing import List, Tuple
 from .transform import getPerMat, axisTransform, transfomImg
 from .utility import *
+from random import randint as rdit
+from math import sqrt
 
 colors = ((0, 255, 255), (255, 0, 0), (0, 255, 0), (255, 0, 255))
+
+
+def dist(p1, p2):
+    (x1, y1), (x2, y2) = p1, p2
+    dx, dy = x1 - x2, y1 - y2
+    return sqrt(dx * dx + dy * dy)
 
 
 class ImgProcess:
@@ -58,9 +66,43 @@ class ImgProcess:
     def resetState(self) -> None:
         "重置状态"
         count = (self.N - self.CUT) // self.H
+        self.front = [0] * (self.M // (self.W >> 2))
         self.edges = [[-1] * count for _ in range(2)]
         self.valid = [[False] * count for _ in range(2)]
         self.sum = [[0] * count for _ in range(2)]
+
+    def getColumn(self) -> None:
+        I = self.N - 1 - self.H
+        MIDJ = self.M >> 1
+        cma = CMA(self.img[I][MIDJ])
+        STEP = self.W >> 2
+
+        L, R = self.PADDING, self.M - self.PADDING
+        self.SrcShow.point((I, MIDJ), (255, 0, 0), 5)
+        L = R = MIDJ
+        while L - STEP >= self.PADDING and cma.val() - self.img[I][L - STEP] < 20:
+            L -= self.W >> 2
+            cma.update(self.img[I][L])
+            self.SrcShow.point((I, L))
+        while R + STEP < self.M - self.PADDING and cma.val() - self.img[I][R + STEP] < 20:
+            R += self.W >> 2
+            cma.update(self.img[I][R])
+            self.SrcShow.point((I, R))
+
+        pos = sum = 0
+        for j in range(L, R + 1, self.W >> 2):
+            color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
+            i = I
+            while i - self.H > self.CUT and cma.val() - self.img[i - self.H][j] < 20:
+                cma.update(self.img[I][j])
+                i -= self.H
+                self.SrcShow.point((i, j), color)
+            cur = 1 << ((self.N - i) >> 2)  # uint32
+            pos += cur * j
+            sum += cur
+        J = pos // sum
+        print(J)
+        self.SrcShow.point((50, J), r=8)
 
     def getConstrain(self, j: int) -> int:
         """让小框框的横坐标保证处在图片内，防止数组越界
@@ -226,8 +268,9 @@ class ImgProcess:
         self.PerShow.polylines(px, py, (255, 0, 127), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
 
     def work(self):
-        self.getEdge()
-        self.fitLine()
+        self.getColumn()
+        # self.getEdge()
+        # self.fitLine()
 
     def show(self):
         self.SrcShow.show("src")

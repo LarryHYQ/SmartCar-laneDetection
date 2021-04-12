@@ -27,19 +27,39 @@ class SMA:
         self.a[self.i] = x
 
 
-class CMA:
-    "累积移动平均"
+# class CMA:
+#     "累积移动平均"
 
-    def __init__(self, defalut=0.0):
+#     def __init__(self, defalut=0.0):
+#         self.reset(defalut)
+
+#     def reset(self, defalut=0.0):
+#         self.n = 0
+#         self.v = defalut
+
+#     def update(self, x: int):
+#         self.n += 1
+#         self.v += (x - self.v) / self.n
+
+
+class CMA:
+    "假的累积移动平均，但不需要浮点数"
+
+    def __init__(self, defalut=0) -> None:
         self.reset(defalut)
 
-    def reset(self, defalut=0.0):
-        self.n = 0
-        self.v = defalut
+    def reset(self, defalut=0) -> None:
+        self.defalut = defalut
+        self.n = self.v = 0
 
-    def update(self, x: int):
+    def update(self, x: int) -> None:
         self.n += 1
-        self.v += (x - self.v) / self.n
+        self.v += x
+
+    def val(self) -> int:
+        if not self.n:
+            return self.defalut
+        return self.v // self.n
 
 
 __all__ = ["SMA", "CMA"]

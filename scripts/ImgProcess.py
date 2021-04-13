@@ -72,68 +72,64 @@ class ImgProcess:
         self.sum = [[0] * count for _ in range(2)]
         self.whiteCMA = CMA()
 
-    def searchRow(self, i: int, j: int) -> List[int]:
-        L = R = j
+    def calcK(self, i, k):
+        b = (self.M >> 1) - (k * (self.N - 1) >> 3)
+        return ((k * i) >> 3) + b
+
+    def searchLinear(self, k: float, draw: bool = True, color: Tuple[int] = None) -> int:
+        i = self.N - 1
+        if draw and color is None:
+            color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
+        STEP = (self.H, 1)
+        for u in range(2):
+            i_ = i - STEP[u]
+            j_ = self.calcK(i_, k)
+            while i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < 20:
+                self.whiteCMA.update(self.img[i_][j_])
+                if draw:
+                    self.SrcShow.point((i_, j_), color)
+                i, i_ = i_, i_ - STEP[u]
+                j_ = self.calcK(i_, k)
+        return i
+
+    def searchRow(self, i: int, j: int, draw: bool = True, color: Tuple[int] = None) -> List[int]:
+        if draw and color is None:
+            color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
         self.SrcShow.point((i, j), (255, 0, 0), 5)
-        while L - self.W >= self.PADDING and self.whiteCMA.val() - self.img[i][L - self.W] < 20:
-            L -= self.W
-            self.whiteCMA.update(self.img[i][L])
+        STEP = (self.W, 1)
+        L = R = j
+        for u in range(2):
+            while L - STEP[u] >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP[u]] < 20:
+                L -= STEP[u]
+                self.whiteCMA.update(self.img[i][L])
+                if draw:
+                    self.SrcShow.point((i, L), color)
+            while R + STEP[u] < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP[u]] < 20:
+                R += STEP[u]
+                self.whiteCMA.update(self.img[i][R])
+                if draw:
+                    self.SrcShow.point((i, R), color)
+        if L != self.PADDING:
             self.SrcShow.point((i, L))
-        while R + self.W < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + self.W] < 20:
-            R += self.W
-            self.whiteCMA.update(self.img[i][R])
+        if R != self.M - self.PADDING - 1:
             self.SrcShow.point((i, R))
         return [L, R]
 
-    def searchCol(self, i: int, j: int) -> List[int]:
-        color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
-        while i - self.H > self.CUT and self.whiteCMA.val() - self.img[i - self.H][j] < 20:
-            i -= self.H
-            self.SrcShow.point((i, j), color)
-        return i
-
-    def getColumn(self) -> None:
-        "获取搜索中线的列数"
-        self.I = self.N - 1
-        MIDJ = self.M >> 1
-        LL = MIDJ - (MIDJ - self.PADDING) // self.W * self.W
-        RR = MIDJ + (self.M - self.PADDING - MIDJ) // self.W * self.W
-        print(LL, RR)
-        self.whiteCMA.reset(self.img[self.I][MIDJ])
-
-        Flag = 0
-        while self.I - self.H > self.CUT:
-            self.I -= self.H
-            self.SrcShow.point((self.I, MIDJ), (255, 0, 0), 5)
-            L, R = self.searchRow(self.I, MIDJ)
-            if L != LL:
-                if Flag & 1:
-                    break
-                Flag |= 1
-            if R != RR:
-                if Flag & 2:
-                    break
-                Flag |= 2
-            self.SrcShow.point((self.I, R))
-
-        pos = Sum = 0
-        for j in range(L, R + 1, self.W):
-            i = self.searchCol(self.I, j)
-            cur = 1 << ((self.N - i) >> 1)  # uint64
-            pos += cur * j
-            Sum += cur
-        self.J = pos // Sum
-        self.SrcShow.line((0, self.J), (self.N - 1, self.J))
+    def getK(self) -> None:
+        self.SrcShow.point((self.N - 1, self.M >> 1), (255, 0, 0))
+        mi = self.K = 0x7FFFFFFF
+        for k in range(-15, 15):
+            i = self.searchLinear(k, False)
+            if i < mi:
+                mi, self.K = i, k
 
     def getEdge(self):
-        I = self.I
-        while I > self.CUT and self.whiteCMA.val() - self.img[I][self.J] < 20:
-            L = R = self.searchRow(I, self.J)
-            # self.SrcShow.rectangle((I_, L), (I_ + self.H, L + self.W))
-            # self.SrcShow.rectangle((I_, R), (I_ + self.H, R + self.W))
-            # self.SrcShow.point((I, L))
-            # self.SrcShow.point((I, R))
+        I = self.N - 1
+        J = self.calcK(I, self.K)
+        while I > self.CUT and self.whiteCMA.val() - self.img[I][J] < 20:
+            L = R = self.searchRow(I, J, False)
             I -= self.H
+            J = self.calcK(I, self.K)
 
     def fitLine(self) -> List[np.array]:
         """选取两侧边线中有效点多的一侧进行拟合，拟合后在曲线最下面的点处延该点切线的垂线方向将曲线平移半个赛道的宽度，
@@ -179,8 +175,8 @@ class ImgProcess:
 
     def work(self):
         self.resetState()
-        self.getColumn()
-        # self.getEdge()
+        self.getK()
+        self.getEdge()
         # self.fitLine()
 
     def getConstrain(self, j: int) -> int:

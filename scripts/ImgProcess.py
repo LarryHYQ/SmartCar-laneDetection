@@ -132,7 +132,15 @@ class ImgProcess:
         I = self.N - 1
         J = self.calcK(I, self.K)
         while I > self.CUT and self.PADDING <= J < self.M - self.PADDING and self.whiteCMA.val() - self.img[I][J] < 20:
-            L = R = self.searchRow(I, J)
+            L, R = self.searchRow(I, J, True)
+
+            if L != self.PADDING:
+                i, j = map(int, axisTransform(I, L, self.PERMAT))
+                self.PerShow.point((i + self.I_SHIFT, j + self.J_SHIFT))
+            if R != self.M - self.PADDING - 1:
+                i, j = map(int, axisTransform(I, R, self.PERMAT))
+                self.PerShow.point((i + self.I_SHIFT, j + self.J_SHIFT))
+
             I -= self.H
             J = self.calcK(I, self.K)
 

@@ -34,7 +34,7 @@ class ImgProcess:
         self.firstFrame = True
         self.predictor = [LinePredictor(4), LinePredictor(4)]
         self.applyConfig()
-        self.resetState()
+        # self.resetState()
 
     def setImg(self, img: np.ndarray) -> None:
         """设置当前需要处理的图像
@@ -70,21 +70,30 @@ class ImgProcess:
         self.edges = [[-1] * count for _ in range(2)]
         self.valid = [[False] * count for _ in range(2)]
         self.sum = [[0] * count for _ in range(2)]
-        self.whiteCMA = CMA()
+        self.whiteCMA = CMA(self.img[self.N - 1][self.M >> 1])
 
     def calcK(self, i, k):
-        b = (self.M >> 1) - (k * (self.N - 1) >> 3)
-        return ((k * i) >> 3) + b
+        b = (self.M >> 1) - (k * (self.N - 1) // 3)
+        return ((k * i) // 3) + b
 
     def searchLinear(self, k: float, draw: bool = False, color: Tuple[int] = None) -> int:
         i = self.N - 1
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
+
         STEP = self.H
+        i_ = i - STEP
+        j_ = self.calcK(i_, k)
+        while i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < 20:
+            self.whiteCMA.update(self.img[i_][j_])
+            if draw:
+                self.SrcShow.point((i_, j_), color)
+            i, i_ = i_, i_ - STEP
+            j_ = self.calcK(i_, k)
         while STEP:
             i_ = i - STEP
             j_ = self.calcK(i_, k)
-            while i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < 20:
+            if i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < 20:
                 self.whiteCMA.update(self.img[i_][j_])
                 if draw:
                     self.SrcShow.point((i_, j_), color)
@@ -98,50 +107,67 @@ class ImgProcess:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
         self.SrcShow.point((i, j), (255, 0, 0), 5)
         L = R = j
+
         STEP = self.W
+        while L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < 20:
+            L -= STEP
+            self.whiteCMA.update(self.img[i][L])
+            if draw:
+                self.SrcShow.point((i, L), color)
         while STEP:
-            while L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < 20:
+            if L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < 20:
                 L -= STEP
                 self.whiteCMA.update(self.img[i][L])
                 if draw:
                     self.SrcShow.point((i, L), color)
             STEP >>= 1
+
         STEP = self.W
+        while R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < 20:
+            R += STEP
+            self.whiteCMA.update(self.img[i][R])
+            if draw:
+                self.SrcShow.point((i, R), color)
         while STEP:
-            while R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < 20:
+            if R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < 20:
                 R += STEP
                 self.whiteCMA.update(self.img[i][R])
                 if draw:
                     self.SrcShow.point((i, R), color)
             STEP >>= 1
-        if L != self.PADDING:
-            self.SrcShow.point((i, L))
-        if R != self.M - self.PADDING - 1:
-            self.SrcShow.point((i, R))
+
         return [L, R]
 
     def getK(self) -> None:
         self.SrcShow.point((self.N - 1, self.M >> 1), (255, 0, 0))
         mi = self.K = 0x7FFFFFFF
-        for k in range(-15, 15):
+        for k in range(-9, 10):
             i = self.searchLinear(k, False)
             if i < mi:
                 mi, self.K = i, k
 
     def getEdge(self):
+
         I = self.N - 1
         J = self.calcK(I, self.K)
         while I > self.CUT and self.PADDING <= J < self.M - self.PADDING and self.whiteCMA.val() - self.img[I][J] < 20:
-            L, R = self.searchRow(I, J, True)
+            L, R = self.searchRow(I, J, False)
 
+            # if L != self.PADDING:
+            #     lEdge.update(I, L)
+            # else:
+            #     lEdge.reset()
             if L != self.PADDING:
-                i, j = map(int, axisTransform(I, L, self.PERMAT))
-                self.PerShow.point((i + self.I_SHIFT, j + self.J_SHIFT))
+                self.SrcShow.point((I, L), (255, 0, 255))
+                i_, j_ = map(int, axisTransform(I, L, self.PERMAT))
+                self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), (255, 0, 255))
             if R != self.M - self.PADDING - 1:
-                i, j = map(int, axisTransform(I, R, self.PERMAT))
-                self.PerShow.point((i + self.I_SHIFT, j + self.J_SHIFT))
+                self.SrcShow.point((I, R), (255, 0, 0))
+                i_, j_ = map(int, axisTransform(I, R, self.PERMAT))
+                self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), (255, 0, 0))
 
-            I -= self.H
+            # I -= self.H
+            I -= 1
             J = self.calcK(I, self.K)
 
     def fitLine(self) -> List[np.array]:

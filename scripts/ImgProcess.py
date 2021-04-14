@@ -76,39 +76,44 @@ class ImgProcess:
         b = (self.M >> 1) - (k * (self.N - 1) >> 3)
         return ((k * i) >> 3) + b
 
-    def searchLinear(self, k: float, draw: bool = True, color: Tuple[int] = None) -> int:
+    def searchLinear(self, k: float, draw: bool = False, color: Tuple[int] = None) -> int:
         i = self.N - 1
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
-        STEP = (self.H, 1)
-        for u in range(2):
-            i_ = i - STEP[u]
+        STEP = self.H
+        while STEP:
+            i_ = i - STEP
             j_ = self.calcK(i_, k)
             while i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < 20:
                 self.whiteCMA.update(self.img[i_][j_])
                 if draw:
                     self.SrcShow.point((i_, j_), color)
-                i, i_ = i_, i_ - STEP[u]
+                i, i_ = i_, i_ - STEP
                 j_ = self.calcK(i_, k)
+            STEP >>= 1
         return i
 
-    def searchRow(self, i: int, j: int, draw: bool = True, color: Tuple[int] = None) -> List[int]:
+    def searchRow(self, i: int, j: int, draw: bool = False, color: Tuple[int] = None) -> List[int]:
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
         self.SrcShow.point((i, j), (255, 0, 0), 5)
-        STEP = (self.W, 1)
         L = R = j
-        for u in range(2):
-            while L - STEP[u] >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP[u]] < 20:
-                L -= STEP[u]
+        STEP = self.W
+        while STEP:
+            while L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < 20:
+                L -= STEP
                 self.whiteCMA.update(self.img[i][L])
                 if draw:
                     self.SrcShow.point((i, L), color)
-            while R + STEP[u] < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP[u]] < 20:
-                R += STEP[u]
+            STEP >>= 1
+        STEP = self.W
+        while STEP:
+            while R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < 20:
+                R += STEP
                 self.whiteCMA.update(self.img[i][R])
                 if draw:
                     self.SrcShow.point((i, R), color)
+            STEP >>= 1
         if L != self.PADDING:
             self.SrcShow.point((i, L))
         if R != self.M - self.PADDING - 1:
@@ -126,8 +131,8 @@ class ImgProcess:
     def getEdge(self):
         I = self.N - 1
         J = self.calcK(I, self.K)
-        while I > self.CUT and self.whiteCMA.val() - self.img[I][J] < 20:
-            L = R = self.searchRow(I, J, False)
+        while I > self.CUT and self.PADDING <= J < self.M - self.PADDING and self.whiteCMA.val() - self.img[I][J] < 20:
+            L = R = self.searchRow(I, J)
             I -= self.H
             J = self.calcK(I, self.K)
 

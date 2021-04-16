@@ -106,42 +106,29 @@ class ImgProcess:
             j_ = self.calcK(i_, k)
         return i
 
-    def searchRow(self, i: int, j: int, draw: bool = False, color: Tuple[int] = None) -> List[int]:
+    def searchRow(self, i: int, j: int, isRight: bool, draw: bool = False, color: Tuple[int] = None) -> int:
         "按行搜索左右的黑色"
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
-        # self.SrcShow.point((i, j), (255, 0, 0), 5)
-        L = R = j
+
+        def success():
+            self.whiteCMA.update(self.img[i][j])
+            if draw:
+                self.SrcShow.point((i, j), color)
 
         STEP = self.W
-        while L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < self.THRESHLOD:
-            L -= STEP
-            self.whiteCMA.update(self.img[i][L])
-            if draw:
-                self.SrcShow.point((i, L), color)
+        j_ = j + STEP if isRight else j - STEP
+        while self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][j_] < self.THRESHLOD:
+            j, j_ = j_, (j_ + STEP if isRight else j_ - STEP)
+            success()
+        STEP >>= 1
         while STEP:
-            if L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < self.THRESHLOD:
-                L -= STEP
-                self.whiteCMA.update(self.img[i][L])
-                if draw:
-                    self.SrcShow.point((i, L), color)
+            j_ = j + STEP if isRight else j - STEP
+            if self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][j_] < self.THRESHLOD:
+                j = j_
+                success()
             STEP >>= 1
-
-        STEP = self.W
-        while R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < self.THRESHLOD:
-            R += STEP
-            self.whiteCMA.update(self.img[i][R])
-            if draw:
-                self.SrcShow.point((i, R), color)
-        while STEP:
-            if R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < self.THRESHLOD:
-                R += STEP
-                self.whiteCMA.update(self.img[i][R])
-                if draw:
-                    self.SrcShow.point((i, R), color)
-            STEP >>= 1
-
-        return [L, R]
+        return j
 
     def getK(self) -> None:
         "获取最远前沿所在的'斜率'K"
@@ -159,8 +146,8 @@ class ImgProcess:
         rEdge = PointEliminator(self, self.fitter[1], (0, 255, 255))
         I = self.N - 1
         J = self.calcK(I, self.K)
-        while I > self.CUT and self.PADDING <= J < self.M - self.PADDING and self.whiteCMA.val() - self.img[I][J] < self.THRESHLOD:
-            L, R = self.searchRow(I, J, False)
+        while I >= self.I and self.whiteCMA.val() - self.img[I][J] < self.THRESHLOD:
+            L, R = self.searchRow(I, J, False), self.searchRow(I, J, True)
 
             if L != self.PADDING:
                 self.point((I, L), (0, 255, 0))

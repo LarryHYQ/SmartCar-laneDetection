@@ -24,8 +24,8 @@ class PointEliminator:
 
     def update(self, i: int, j: int):
         if (self.i == 1 and abs(self.J[0] - j) <= 2) or (self.i > 1 and abs(j - self.J[self.i & 1]) <= 5):
-            self.main.point((self.I[self.i & 1], self.J[self.i & 1]), self.color)
-            self.fitter.update(*axisTransform(i, j, self.main.PERMAT))
+            self.main.point((self.I[self.i & 1 ^ 1], self.J[self.i & 1 ^ 1]), self.color)
+            self.fitter.update(*axisTransform(self.I[self.i & 1 ^ 1], self.J[self.i & 1 ^ 1], self.main.PERMAT))
         self.I[self.i & 1], self.J[self.i & 1] = i, j
         self.i += 1
 
@@ -40,7 +40,7 @@ class ImgProcess:
             Config (dict): 通过 getConfig() 获取的配置
         """
         self.Config = Config
-        self.THRESHLOD = 30
+
         self.fitter = [Polyfit2d(), Polyfit2d()]
         self.applyConfig()
 
@@ -56,6 +56,7 @@ class ImgProcess:
 
     def applyConfig(self) -> None:
         "从main窗口获取图像处理所需参数"
+        self.THRESHLOD = 30
         self.N, self.M = self.Config["N"], self.Config["M"]  # 图片的高和宽
         self.CUT = self.Config["CUT"]  # 裁剪最上面的多少行
         self.NOISE = self.Config["NOISE"]  # 灰度梯度最小有效值

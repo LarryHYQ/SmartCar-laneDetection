@@ -127,7 +127,7 @@ class Polyfit2d:
         self.n = 0
         self.x = self.y = self.x2 = self.x3 = self.x4 = self.xy = self.x2y = 0
 
-    def update(self, x: int, y: int):
+    def update(self, x: float, y: float):
         self.n += 1
         self.x += x
         self.y += y

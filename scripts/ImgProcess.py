@@ -1,6 +1,4 @@
 import numpy as np
-import cv2
-from collections import deque
 from typing import List, Tuple
 from .transform import getPerMat, axisTransform, transfomImg
 from .utility import *
@@ -10,10 +8,26 @@ from math import sqrt
 colors = ((0, 255, 255), (255, 0, 0), (0, 255, 0), (255, 0, 255))
 
 
-def dist(p1, p2):
-    (x1, y1), (x2, y2) = p1, p2
-    dx, dy = x1 - x2, y1 - y2
-    return sqrt(dx * dx + dy * dy)
+class PointEliminator:
+    "用于剔除不合适的点"
+
+    def __init__(self, main: "ImgProcess", fitter: Polyfit2d, color: Tuple[int] = (255, 0, 255)):
+        self.main = main
+        self.fitter = fitter
+        self.color = color
+        self.reset()
+
+    def reset(self):
+        self.i = 0
+        self.I = [0] * 2
+        self.J = [0] * 2
+
+    def update(self, i: int, j: int):
+        if (self.i == 1 and abs(self.J[0] - j) <= 2) or (self.i > 1 and abs(j - self.J[self.i & 1]) <= 5):
+            self.main.point((self.I[self.i & 1], self.J[self.i & 1]), self.color)
+            self.fitter.update(*axisTransform(i, j, self.main.PERMAT))
+        self.I[self.i & 1], self.J[self.i & 1] = i, j
+        self.i += 1
 
 
 class ImgProcess:
@@ -26,15 +40,9 @@ class ImgProcess:
             Config (dict): 通过 getConfig() 获取的配置
         """
         self.Config = Config
-        self.edges = []
-        self.valid = []
-        self.sum = []
-        self.Sum = 0
-        self.res = [None] * 2
-        self.firstFrame = True
-        self.predictor = [LinePredictor(4), LinePredictor(4)]
+        self.THRESHLOD = 30
+        self.fitter = [Polyfit2d(), Polyfit2d()]
         self.applyConfig()
-        # self.resetState()
 
     def setImg(self, img: np.ndarray) -> None:
         """设置当前需要处理的图像
@@ -65,18 +73,24 @@ class ImgProcess:
 
     def resetState(self) -> None:
         "重置状态"
-        count = (self.N - self.CUT) // self.H
-        self.front = [0] * (self.M // (self.W >> 2))
-        self.edges = [[-1] * count for _ in range(2)]
-        self.valid = [[False] * count for _ in range(2)]
-        self.sum = [[0] * count for _ in range(2)]
         self.whiteCMA = CMA(self.img[self.N - 1][self.M >> 1])
+        for u in range(2):
+            self.fitter[u].reset()
+
+    def point(self, pt: Tuple[int], color: Tuple[int] = (255, 255, 0), r: int = 4) -> None:
+        "输入原图上的坐标，同时在原图和新图上画点"
+        i, j = pt
+        self.SrcShow.point((i, j), color, r)
+        I, J = axisTransform(i, j, self.PERMAT)
+        self.PerShow.point((round(I + self.I_SHIFT), round(J + self.J_SHIFT)), color, r)
 
     def calcK(self, i, k):
+        "以行号和'斜率'计算列号"
         b = (self.M >> 1) - (k * (self.N - 1) // 3)
         return ((k * i) // 3) + b
 
     def searchLinear(self, k: float, draw: bool = False, color: Tuple[int] = None) -> int:
+        "沿'斜率'k搜索黑色"
         i = self.N - 1
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
@@ -84,38 +98,29 @@ class ImgProcess:
         STEP = self.H
         i_ = i - STEP
         j_ = self.calcK(i_, k)
-        while i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < 20:
+        while i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < self.THRESHLOD:
             self.whiteCMA.update(self.img[i_][j_])
             if draw:
                 self.SrcShow.point((i_, j_), color)
-            i, i_ = i_, i_ - STEP
+            i, i_ = i_, i_ - 1
             j_ = self.calcK(i_, k)
-        while STEP:
-            i_ = i - STEP
-            j_ = self.calcK(i_, k)
-            if i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < 20:
-                self.whiteCMA.update(self.img[i_][j_])
-                if draw:
-                    self.SrcShow.point((i_, j_), color)
-                i, i_ = i_, i_ - STEP
-                j_ = self.calcK(i_, k)
-            STEP >>= 1
         return i
 
     def searchRow(self, i: int, j: int, draw: bool = False, color: Tuple[int] = None) -> List[int]:
+        "按行搜索左右的黑色"
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
-        self.SrcShow.point((i, j), (255, 0, 0), 5)
+        # self.SrcShow.point((i, j), (255, 0, 0), 5)
         L = R = j
 
         STEP = self.W
-        while L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < 20:
+        while L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < self.THRESHLOD:
             L -= STEP
             self.whiteCMA.update(self.img[i][L])
             if draw:
                 self.SrcShow.point((i, L), color)
         while STEP:
-            if L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < 20:
+            if L - STEP >= self.PADDING and self.whiteCMA.val() - self.img[i][L - STEP] < self.THRESHLOD:
                 L -= STEP
                 self.whiteCMA.update(self.img[i][L])
                 if draw:
@@ -123,13 +128,13 @@ class ImgProcess:
             STEP >>= 1
 
         STEP = self.W
-        while R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < 20:
+        while R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < self.THRESHLOD:
             R += STEP
             self.whiteCMA.update(self.img[i][R])
             if draw:
                 self.SrcShow.point((i, R), color)
         while STEP:
-            if R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < 20:
+            if R + STEP < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][R + STEP] < self.THRESHLOD:
                 R += STEP
                 self.whiteCMA.update(self.img[i][R])
                 if draw:
@@ -139,133 +144,52 @@ class ImgProcess:
         return [L, R]
 
     def getK(self) -> None:
+        "获取最远前沿所在的'斜率'K"
         self.SrcShow.point((self.N - 1, self.M >> 1), (255, 0, 0))
-        mi = self.K = 0x7FFFFFFF
+        self.I = self.K = 0x7FFFFFFF
         for k in range(-9, 10):
             i = self.searchLinear(k, False)
-            if i < mi:
-                mi, self.K = i, k
+            if i < self.I:
+                self.I, self.K = i, k
+        self.SrcShow.line((self.N - 1, self.M >> 1), (self.I, self.calcK(self.I, self.K)))
 
     def getEdge(self):
-
+        "逐行获取边界点"
+        lEdge = PointEliminator(self, self.fitter[0], (255, 0, 255))
+        rEdge = PointEliminator(self, self.fitter[1], (0, 255, 255))
         I = self.N - 1
         J = self.calcK(I, self.K)
-        while I > self.CUT and self.PADDING <= J < self.M - self.PADDING and self.whiteCMA.val() - self.img[I][J] < 20:
+        while I > self.CUT and self.PADDING <= J < self.M - self.PADDING and self.whiteCMA.val() - self.img[I][J] < self.THRESHLOD:
             L, R = self.searchRow(I, J, False)
 
-            # if L != self.PADDING:
-            #     lEdge.update(I, L)
-            # else:
-            #     lEdge.reset()
             if L != self.PADDING:
-                self.SrcShow.point((I, L), (255, 0, 255))
-                i_, j_ = map(int, axisTransform(I, L, self.PERMAT))
-                self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), (255, 0, 255))
+                self.point((I, L), (0, 255, 0))
+                lEdge.update(I, L)
+            else:
+                lEdge.reset()
             if R != self.M - self.PADDING - 1:
-                self.SrcShow.point((I, R), (255, 0, 0))
-                i_, j_ = map(int, axisTransform(I, R, self.PERMAT))
-                self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), (255, 0, 0))
+                self.point((I, R), (255, 0, 0))
+                rEdge.update(I, R)
+            else:
+                rEdge.reset()
 
-            # I -= self.H
             I -= 1
             J = self.calcK(I, self.K)
-
-    def fitLine(self) -> List[np.array]:
-        """选取两侧边线中有效点多的一侧进行拟合，拟合后在曲线最下面的点处延该点切线的垂线方向将曲线平移半个赛道的宽度，
-        得到的就是赛道中线的抛物线方程。
-
-        Returns:
-            List[np.array]: 抛物线的参数 [a, b, c] -> y = a * x * x + b * x + c
-        """
-        count = [0] * 2
-        fit = Polyfit2d()
-        for u in range(2):
-            fit.reset()
-            hasValided = False
-            for t, i in enumerate(range(self.N - (self.H >> 1), self.CUT - 1, -self.H)):
-                if hasValided and not self.valid[u][t] and self.sum[u][t] < self.Sum:
-                    self.SrcShow.point((i, self.edges[u][t]), colors[2 + u ^ 1])
-                    for t in range(t, (self.N - self.CUT) // self.H):
-                        self.valid[u][t] = False
-                    break
-                if self.valid[u][t]:
-                    hasValided = True
-                    i_, j_ = map(round, axisTransform(i, self.edges[u][t], self.PERMAT))
-                    self.PerShow.point((i_ + self.I_SHIFT, j_ + self.J_SHIFT), colors[u ^ 1])
-                    fit.update(i_, j_)
-            count[u] = fit.n
-            if fit.n > 3:
-                self.res[u] = fit.fit()
-                px = list(range(self.N_))
-                py = np.polyval(self.res[u], px)
-                self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
-        if max(count) < 3:
-            return
-
-        tmp, u = (self.res[0], 0) if count[0] > count[1] else (self.res[1], 1)
-        print(u)
-        print(tmp)
-        tmp = shift(tmp, 110, 15, u)
-        print(np.polyval(tmp, 120))
-        print(tmp)
         px = list(range(self.N_))
-        py = np.polyval(tmp, px)
-        self.PerShow.polylines(px, py, (255, 0, 127), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+        for u in range(2):
+            if self.fitter[u].n > 3:
+                self.fitter[u].fit()
+                py = [self.fitter[u].val(v) for v in px]
+                self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+                if self.fitter[u].n > self.fitter[u ^ 1].n:
+                    self.fitter[u].shift(110, 14, u)
+                    py = [self.fitter[u].val(v) for v in px]
+                    self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
 
     def work(self):
         self.resetState()
         self.getK()
         self.getEdge()
-        # self.fitLine()
-
-    def getConstrain(self, j: int) -> int:
-        """让小框框的横坐标保证处在图片内，防止数组越界
-
-        Args:
-            j (int): 需要开始搜索的列数
-
-        Returns:
-            int: 保证合法的开始搜索的列数
-        """
-        return min(max(j, self.PADDING), self.M - self.W - self.PADDING)
-
-    def rectEdge(self, I: int, J: int, right: bool, H: int, W: int) -> Tuple[int]:
-        """在小框框内搜索边线，具体做法是把每一个位置左右两边灰度的差值 (图像梯度)的平方
-        作为权重乘以相应位置的横坐标累加到变量 Pos 上，同时把灰度差直接累加到dSum上
-        (用平方是为了效果更加明显)，最终边界点的横坐标就可以通过 Pos // dSum 得到。
-
-        如果边界点很明显(或小框选取的位置很合适)，得到的dSum值就会很大，而这个值越大，
-        说明得到的边界点越可信；相反，如果框框里大多数点都是黑点或都是白点，得到的dSum
-        就会很小，说明这个边界点不可信。在下方 getEdge() 获取边界点时就会通过这个特性
-        来排除不合适的点。
-
-
-        Args:
-            I (int): 小框框左上角的行数
-            J (int): 小框框左上角的列数
-            right (bool): 如果为True则搜索右边界，反之搜索左边界
-            H (int): 小框框的高度
-            W (int): 小框框的宽度
-
-        Returns:
-            j (int): 得到的边界点横坐标
-            dSum (int): 框框内像素灰度梯度平方的总和
-        """
-        Pos, dSum = 0, 1
-        for i in range(I, I + H):
-            for j in range(J + 1, J + W - 1):
-                cur = self.img[i][j + 1] - self.img[i][j - 1]
-                if right:
-                    cur = -cur
-                if cur > self.NOISE:
-                    cur *= cur
-                    Pos += cur * j
-                    dSum += cur
-        return Pos // dSum, dSum
-
-    def show(self):
-        self.SrcShow.show("src")
-        self.PerShow.show("perspective")
 
 
 __all__ = ["ImgProcess"]

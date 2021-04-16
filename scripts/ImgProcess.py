@@ -175,21 +175,26 @@ class ImgProcess:
 
             I -= 1
             J = self.calcK(I, self.K)
+
+    def fitEdge(self):
+        "拟合边界"
         px = list(range(self.N_))
         for u in range(2):
             if self.fitter[u].n > 3:
                 self.fitter[u].fit()
                 py = [self.fitter[u].val(v) for v in px]
                 self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
-                if self.fitter[u].n > self.fitter[u ^ 1].n:
+                if self.fitter[u].n + u > self.fitter[u ^ 1].n:
                     self.fitter[u].shift(110, 14, u)
                     py = [self.fitter[u].val(v) for v in px]
                     self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
 
     def work(self):
+        "图像处理的完整工作流程"
         self.resetState()
         self.getK()
         self.getEdge()
+        self.fitEdge()
 
 
 __all__ = ["ImgProcess"]

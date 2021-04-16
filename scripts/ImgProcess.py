@@ -5,7 +5,7 @@ from .utility import *
 from random import randint as rdit
 from math import sqrt
 
-colors = ((0, 255, 255), (255, 0, 0), (0, 255, 0), (255, 0, 255))
+colors = ((255, 0, 255), (255, 0, 0), (0, 255, 255), (0, 255, 0))
 
 
 class PointEliminator:
@@ -143,26 +143,19 @@ class ImgProcess:
 
     def getEdge(self):
         "逐行获取边界点"
-        lEdge = PointEliminator(self, self.fitter[0], (255, 0, 255))
-        rEdge = PointEliminator(self, self.fitter[1], (0, 255, 255))
-        I = self.N - 1
-        J = self.calcK(I, self.K)
-        while I >= self.I and self.whiteCMA.val() - self.img[I][J] < self.THRESHLOD:
-            L, R = self.searchRow(I, J, False), self.searchRow(I, J, True)
-
-            if L != self.PADDING:
-                self.point((I, L), (0, 255, 0))
-                lEdge.update(I, L)
-            else:
-                lEdge.reset()
-            if R != self.M - self.PADDING - 1:
-                self.point((I, R), (255, 0, 0))
-                rEdge.update(I, R)
-            else:
-                rEdge.reset()
-
-            I -= 1
+        for u in range(2):
+            eliminator = PointEliminator(self, self.fitter[u], colors[u])
+            I = self.N - 1
             J = self.calcK(I, self.K)
+            while I >= self.I and self.whiteCMA.val() - self.img[I][J] < self.THRESHLOD:
+                j = self.searchRow(I, J, u)
+                if self.PADDING < j < self.M - self.PADDING - 1:
+                    self.point((I, j), colors[u + 2])
+                    eliminator.update(I, j)
+                else:
+                    eliminator.reset()
+                I -= 1
+                J = self.calcK(I, self.K)
 
     def fitEdge(self):
         "拟合边界"

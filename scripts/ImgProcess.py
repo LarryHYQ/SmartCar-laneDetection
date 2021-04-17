@@ -5,11 +5,11 @@ from .utility import *
 from random import randint as rdit
 from math import sqrt
 
-colors = ((255, 0, 255), (255, 0, 0), (0, 255, 255), (0, 255, 0))
+colors = ((255, 0, 255), (255, 0, 0), (0, 255, 255), (0, 255, 0), (0, 127, 127), (127, 127, 0))
 
 
-class PointEliminator:
-    "用于剔除不合适的点"
+class AngleEliminator:
+    "通过判断新的点和前几个点的夹角是否小于45度来判断是否保留这个点"
 
     def __init__(self, main: "ImgProcess", fitter: Polyfit2d, color: Tuple[int] = (255, 0, 255)):
         self.main = main
@@ -18,16 +18,46 @@ class PointEliminator:
         self.reset()
 
     def reset(self):
-        self.i = 0
+        self.t = 0
+        self.I = [0] * 5
+        self.J = [0] * 5
+
+    def check(self, i: int, j: int):
+        if self.t < 5:
+            return True
+        i1, i2 = self.I[(self.t - 1) % 5] - self.I[(self.t - 5) % 5], i - self.I[(self.t - 3) % 5]
+        j1, j2 = self.J[(self.t - 1) % 5] - self.J[(self.t - 5) % 5], j - self.J[(self.t - 3) % 5]
+        dot = i1 * i2 + j1 * j2
+        return dot > 0 and (dot * dot << 1) // ((i1 * i1 + j1 * j1) * (i2 * i2 + j2 * j2)) >= 1
+
+    def update(self, i: int, j: int):
+        if self.check(i, j):
+            self.main.point((i, j), self.color)
+            self.fitter.update(*axisTransform(i, j, self.main.PERMAT))
+            self.I[self.t % 5], self.J[self.t % 5] = i, j
+            self.t += 1
+
+
+class DistEliminator:
+    "通过判断相邻两个点的距离是否小于阈值来决定是否剔除这个点，并通过 AngleEliminator 进一步筛选"
+
+    def __init__(self, main: "ImgProcess", angleEliminator: AngleEliminator, color: Tuple[int] = (255, 0, 255)):
+        self.main = main
+        self.angleEliminator = angleEliminator
+        self.color = color
+        self.reset()
+
+    def reset(self):
+        self.t = 0
         self.I = [0] * 2
         self.J = [0] * 2
 
     def update(self, i: int, j: int):
-        if (self.i == 1 and abs(self.J[0] - j) <= 2) or (self.i > 1 and abs(j - self.J[self.i & 1]) <= 5):
-            self.main.point((self.I[self.i & 1 ^ 1], self.J[self.i & 1 ^ 1]), self.color)
-            self.fitter.update(*axisTransform(self.I[self.i & 1 ^ 1], self.J[self.i & 1 ^ 1], self.main.PERMAT))
-        self.I[self.i & 1], self.J[self.i & 1] = i, j
-        self.i += 1
+        if (self.t == 1 and abs(self.J[0] - j) <= 2) or (self.t > 1 and abs(j - self.J[self.t & 1]) <= 5):
+            self.main.point((self.I[self.t & 1 ^ 1], self.J[self.t & 1 ^ 1]), self.color)
+            self.angleEliminator.update(self.I[self.t & 1 ^ 1], self.J[self.t & 1 ^ 1])
+        self.I[self.t & 1], self.J[self.t & 1] = i, j
+        self.t += 1
 
 
 class ImgProcess:
@@ -40,8 +70,9 @@ class ImgProcess:
             Config (dict): 通过 getConfig() 获取的配置
         """
         self.Config = Config
-
-        self.fitter = [Polyfit2d(), Polyfit2d()]
+        self.fitter = [Polyfit2d() for u in range(2)]
+        self.angleEliminator = [AngleEliminator(self, self.fitter[u], colors[u + 4]) for u in range(2)]
+        self.distEliminator = [DistEliminator(self, self.angleEliminator[u], colors[u]) for u in range(2)]
         self.applyConfig()
 
     def setImg(self, img: np.ndarray) -> None:
@@ -72,18 +103,21 @@ class ImgProcess:
         self.PERMAT = getPerMat(self.Config["SRCARR"], self.Config["PERARR"])  # 逆透视变换矩阵
         self.REPMAT = getPerMat(self.Config["PERARR"], self.Config["SRCARR"])  # 反向逆透视变换矩阵
 
-    def resetState(self) -> None:
-        "重置状态"
-        self.whiteCMA = CMA(self.img[self.N - 1][self.M >> 1])
-        for u in range(2):
-            self.fitter[u].reset()
-
     def point(self, pt: Tuple[int], color: Tuple[int] = (255, 255, 0), r: int = 4) -> None:
         "输入原图上的坐标，同时在原图和新图上画点"
         i, j = pt
         self.SrcShow.point((i, j), color, r)
         I, J = axisTransform(i, j, self.PERMAT)
         self.PerShow.point((round(I + self.I_SHIFT), round(J + self.J_SHIFT)), color, r)
+
+    def resetState(self) -> None:
+        "重置状态"
+        self.whiteCMA = CMA(self.img[self.N - 1][self.M >> 1])
+        for u in range(2):
+            self.angleEliminator[u].reset()
+            self.distEliminator[u].reset()
+            self.fitter[u].reset()
+        self.SrcShow.line((self.CUT, 0), (self.CUT, self.M))
 
     def calcK(self, i, k):
         "以行号和'斜率'计算列号"
@@ -96,8 +130,7 @@ class ImgProcess:
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
 
-        STEP = self.H
-        i_ = i - STEP
+        i_ = i - self.H
         j_ = self.calcK(i_, k)
         while i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < self.THRESHLOD:
             self.whiteCMA.update(self.img[i_][j_])
@@ -139,21 +172,21 @@ class ImgProcess:
             i = self.searchLinear(k, False)
             if i < self.I:
                 self.I, self.K = i, k
+        self.SrcShow.point((self.I, self.calcK(self.I, self.K)), (255, 0, 0))
         self.SrcShow.line((self.N - 1, self.M >> 1), (self.I, self.calcK(self.I, self.K)))
 
     def getEdge(self):
         "逐行获取边界点"
         for u in range(2):
-            eliminator = PointEliminator(self, self.fitter[u], colors[u])
             I = self.N - 1
             J = self.calcK(I, self.K)
             while I >= self.I and self.whiteCMA.val() - self.img[I][J] < self.THRESHLOD:
                 j = self.searchRow(I, J, u)
                 if self.PADDING < j < self.M - self.PADDING - 1:
                     self.point((I, j), colors[u + 2])
-                    eliminator.update(I, j)
+                    self.distEliminator[u].update(I, j)
                 else:
-                    eliminator.reset()
+                    self.distEliminator[u].reset()
                 I -= 1
                 J = self.calcK(I, self.K)
 

@@ -102,13 +102,17 @@ class ImgProcess:
         self.PERZOOM = self.Config["PERZOOM"]  #
         self.PERMAT = getPerMat(self.Config["SRCARR"], self.Config["PERARR"])  # 逆透视变换矩阵
         self.REPMAT = getPerMat(self.Config["PERARR"], self.Config["SRCARR"])  # 反向逆透视变换矩阵
+        self.FITX = 20
+
+        self.SI, self.SJ = self.N + 10, self.M >> 1
+        self.PI, self.PJ = axisTransform(self.SI, self.SJ, self.PERMAT)
 
     def point(self, pt: Tuple[int], color: Tuple[int] = (255, 255, 0), r: int = 4) -> None:
         "输入原图上的坐标，同时在原图和新图上画点"
         i, j = pt
         self.SrcShow.point((i, j), color, r)
         I, J = axisTransform(i, j, self.PERMAT)
-        self.PerShow.point((round(I + self.I_SHIFT), round(J + self.J_SHIFT)), color, r)
+        self.PerShow.point((I + self.I_SHIFT, J + self.J_SHIFT), color, r)
 
     def resetState(self) -> None:
         "重置状态"
@@ -166,7 +170,7 @@ class ImgProcess:
 
     def getK(self) -> None:
         "获取最远前沿所在的'斜率'K"
-        self.SrcShow.point((self.N - 1, self.M >> 1), (255, 0, 0))
+        self.SrcShow.point((self.N - 1, self.M >> 1), (255, 0, 0), 6)
         self.I = self.K = 0x7FFFFFFF
         for k in range(-9, 10):
             i = self.searchLinear(k, False)
@@ -192,16 +196,26 @@ class ImgProcess:
 
     def fitEdge(self):
         "拟合边界"
-        px = list(range(self.N_))
+        self.PerShow.line((0, self.PJ + self.J_SHIFT), (self.N_, self.PJ + self.J_SHIFT))
+        self.PerShow.point((self.PI + self.I_SHIFT, self.PJ + self.J_SHIFT), r=6)
+        px = list(range(-self.I_SHIFT, self.N_ - self.I_SHIFT))
         for u in range(2):
             if self.fitter[u].n > 3:
                 self.fitter[u].fit()
-                py = [self.fitter[u].val(v) for v in px]
-                self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+
+                # py = [self.fitter[u].val(v) for v in px]
+                # self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
                 if self.fitter[u].n + u > self.fitter[u ^ 1].n:
                     self.fitter[u].shift(110, 14, u)
+                    self.PerShow.point((self.PI - self.FITX + self.I_SHIFT, self.fitter[u].val(self.PI - self.FITX) + self.J_SHIFT))
                     py = [self.fitter[u].val(v) for v in px]
                     self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+
+                    self.fitter[u].get(self.PI, self.PJ, self.PI - self.FITX)
+                    py = [self.fitter[u].val_(v) for v in px]
+                    self.PerShow.polylines(px, py, (0, 127, 255), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+                    r = 1 / (self.fitter[u].res_[0] * 2)
+                    self.PerShow.circle((self.PI + self.I_SHIFT, self.PJ + r + self.J_SHIFT), r, (127, 255, 127))
 
     def work(self):
         "图像处理的完整工作流程"

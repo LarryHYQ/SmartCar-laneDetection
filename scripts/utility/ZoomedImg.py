@@ -32,7 +32,7 @@ class ZoomedImg:
             color (Tuple[int], 可选): 矩形的颜色元组，默认为红色 (0, 0, 255)
             thickness (int, 可选): 矩形线条的粗细，默认为 2
         """
-        cv2.rectangle(self.canvas, tuple(v * self.zoom for v in reversed(p1)), tuple(v * self.zoom for v in reversed(p2)), color, thickness)
+        cv2.rectangle(self.canvas, tuple(round(v * self.zoom) for v in reversed(p1)), tuple(round(v * self.zoom) for v in reversed(p2)), color, thickness)
 
     def point(self, pt: Tuple[int], color: Tuple[int] = (0, 0, 255), r: int = 4):
         """在图像画布上画点
@@ -42,10 +42,13 @@ class ZoomedImg:
             color (Tuple[int], 可选): 点的颜色元组，默认为红色 (0, 0, 255)
             r (int, 可选): 点的大小，默认为 4
         """
-        cv2.circle(self.canvas, tuple(v * self.zoom for v in reversed(pt)), r, color, -1)
+        cv2.circle(self.canvas, tuple(round(v * self.zoom) for v in reversed(pt)), r, color, -1)
+
+    def circle(self, pt: Tuple[int], r: int = 4, color: Tuple[int] = (0, 0, 255), thickness: int = 2):
+        cv2.circle(self.canvas, tuple(round(v * self.zoom) for v in reversed(pt)), round(abs(r) * self.zoom), color, thickness)
 
     def line(self, p1: Tuple[int], p2: Tuple[int], color: Tuple[int] = (0, 0, 255), thickness: int = 2) -> None:
-        cv2.line(self.canvas, tuple(v * self.zoom for v in reversed(p1)), tuple(v * self.zoom for v in reversed(p2)), color, thickness)
+        cv2.line(self.canvas, tuple(round(v * self.zoom) for v in reversed(p1)), tuple(round(v * self.zoom) for v in reversed(p2)), color, thickness)
 
     def polylines(self, pi: List[int], pj: List[int], color: Tuple[int], thickness: int = 2, i_shift: int = 0, j_shift: int = 0, closed: bool = False):
         """在图像画布上画出函数图像
@@ -65,7 +68,7 @@ class ZoomedImg:
         cv2.polylines(self.canvas, [pts], closed, color, thickness)
 
     def putText(self, text: str, pt: Tuple[int], font: int = cv2.FONT_HERSHEY_TRIPLEX, scale: float = 0.65, color: Tuple[int] = (255, 0, 0), thickness: int = 1):
-        cv2.putText(self.canvas, text, tuple(v * self.zoom for v in reversed(pt)), font, scale, color, thickness)
+        cv2.putText(self.canvas, text, tuple(round(v * self.zoom) for v in reversed(pt)), font, scale, color, thickness)
 
     def show(self, name: str):
         "显示图像"

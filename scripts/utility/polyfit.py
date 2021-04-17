@@ -152,9 +152,24 @@ class Polyfit2d:
         self.res = [A, B, C]
         return [A, B, C]
 
-    def val(self, x: int):
+    def val(self, x: float):
         A, B, C = self.res
         return A * x * x + B * x + C
+
+    def val_(self, x: float):
+        A, B, C = self.res_
+        return A * x * x + B * x + C
+
+    def get(self, PX: float, PY: float, x: float):
+        ex, ey = self.extreme()
+        if (self.val(x) - PY >= 0) ^ (ey - PY >= 0):
+            x = min(x, ex)
+        y = self.val(x)
+        A = (y - PY) / ((x - PX) * (x - PX))
+        B = -2 * PX * A
+        C = PY + A * PX * PX
+        self.res_ = [A, B, C]
+        return self.res_
 
     def shift(self, x0: int, d: float, direction: bool) -> List[float]:
         A, B, C = self.res

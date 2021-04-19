@@ -162,7 +162,10 @@ class Polyfit2d:
 
     def get(self, PX: float, PY: float, x: float):
         ex, ey = self.extreme()
-        if (self.val(x) - PY >= 0) ^ (ey - PY >= 0):
+        f1 = self.val(x) - PY >= 0
+        f2 = ey - PY >= 0
+        f3 = self.res[0] >= 0
+        if (f1 and f2 and f3) or not (f1 or f2 or f3):
             x = min(x, ex)
         y = self.val(x)
         A = (y - PY) / ((x - PX) * (x - PX))

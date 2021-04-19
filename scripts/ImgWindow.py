@@ -57,4 +57,4 @@ class ImgWindow:
     def continuously(self) -> None:
         if self.holding:
             self.main.nxt()
-            self.root.after(200, self.continuously)
+            self.root.after(100, self.continuously)

@@ -10,6 +10,7 @@ colors = ((255, 0, 255), (255, 0, 0), (0, 255, 255), (0, 255, 0), (0, 127, 127),
 
 class AngleEliminator:
     "通过判断新的点和前几个点的夹角是否小于45度来判断是否保留这个点"
+    N = 4
 
     def __init__(self, main: "ImgProcess", fitter: Polyfit2d, color: Tuple[int] = (255, 0, 255)):
         self.main = main
@@ -19,14 +20,14 @@ class AngleEliminator:
 
     def reset(self):
         self.t = 0
-        self.I = [0] * 5
-        self.J = [0] * 5
+        self.I = [0] * self.N
+        self.J = [0] * self.N
 
     def check(self, i: int, j: int):
-        if self.t < 5:
+        if self.t < self.N:
             return True
-        i1, i2 = self.I[(self.t - 1) % 5] - self.I[(self.t - 5) % 5], i - self.I[(self.t - 3) % 5]
-        j1, j2 = self.J[(self.t - 1) % 5] - self.J[(self.t - 5) % 5], j - self.J[(self.t - 3) % 5]
+        i1, i2 = self.I[(self.t - 1) % self.N] - self.I[(self.t - self.N) % self.N], i - self.I[(self.t - 2) % self.N]
+        j1, j2 = self.J[(self.t - 1) % self.N] - self.J[(self.t - self.N) % self.N], j - self.J[(self.t - 2) % self.N]
         dot = i1 * i2 + j1 * j2
         return dot > 0 and (dot * dot << 1) // ((i1 * i1 + j1 * j1) * (i2 * i2 + j2 * j2)) >= 1
 
@@ -34,7 +35,7 @@ class AngleEliminator:
         if self.check(i, j):
             self.main.point((i, j), self.color)
             self.fitter.update(*axisTransform(i, j, self.main.PERMAT))
-            self.I[self.t % 5], self.J[self.t % 5] = i, j
+            self.I[self.t % self.N], self.J[self.t % self.N] = i, j
             self.t += 1
 
 
@@ -87,7 +88,7 @@ class ImgProcess:
 
     def applyConfig(self) -> None:
         "从main窗口获取图像处理所需参数"
-        self.THRESHLOD = 30
+        self.THRESHLOD = 10
         self.N, self.M = self.Config["N"], self.Config["M"]  # 图片的高和宽
         self.CUT = self.Config["CUT"]  # 裁剪最上面的多少行
         self.NOISE = self.Config["NOISE"]  # 灰度梯度最小有效值
@@ -116,76 +117,70 @@ class ImgProcess:
 
     def resetState(self) -> None:
         "重置状态"
-        self.whiteCMA = CMA(self.img[self.N - 1][self.M >> 1])
         for u in range(2):
             self.angleEliminator[u].reset()
             self.distEliminator[u].reset()
             self.fitter[u].reset()
         self.SrcShow.line((self.CUT, 0), (self.CUT, self.M))
 
+    def checkLR(self, i: int, j: int, isRight: bool, step: int = 2) -> int:
+        "计算左右差比和"
+        l = max(self.PADDING, j - step)
+        r = min(self.M - self.PADDING - 1, j + step)
+        dif = self.img[i][l] - self.img[i][r] if isRight else self.img[i][r] - self.img[i][l]
+        return (dif << 7) // (self.img[i][l] + self.img[i][r])
+
+    def checkU(self, i: int, j: int, step: int = 2) -> int:
+        "计算上下差比和"
+        l = max(self.CUT, i - step)
+        r = min(self.N - 1, i + 1)
+        return (self.img[r][j] - self.img[l][j] << 7) // (self.img[r][j] + self.img[l][j])
+
     def calcK(self, i, k):
         "以行号和'斜率'计算列号"
         b = (self.M >> 1) - (k * (self.N - 1) // 3)
         return ((k * i) // 3) + b
 
-    def searchLinear(self, k: float, draw: bool = False, color: Tuple[int] = None) -> int:
+    def searchK(self, k: float, draw: bool = False, color: Tuple[int] = None) -> int:
         "沿'斜率'k搜索黑色"
-        i = self.N - 1
+        i = self.N - 2
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
-
-        i_ = i - self.H
-        j_ = self.calcK(i_, k)
-        while i_ > self.CUT and self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i_][j_] < self.THRESHLOD:
-            self.whiteCMA.update(self.img[i_][j_])
+        while self.CUT < i - 1 and self.PADDING <= self.calcK(i - 1, k) < self.M - self.PADDING and self.checkU(i, self.calcK(i, k)) + self.checkLR(i, self.calcK(i, k), k < 0) < self.THRESHLOD:
             if draw:
-                self.SrcShow.point((i_, j_), color)
-            i, i_ = i_, i_ - 1
-            j_ = self.calcK(i_, k)
+                self.SrcShow.point((i, self.calcK(i, k)), color)
+            i -= 1
         return i
 
     def searchRow(self, i: int, j: int, isRight: bool, draw: bool = False, color: Tuple[int] = None) -> int:
         "按行搜索左右的黑色"
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
-
-        def success():
-            self.whiteCMA.update(self.img[i][j])
+        STEP = 1 if isRight else -1
+        while self.PADDING <= j + STEP < self.M - self.PADDING and self.checkLR(i, j, isRight) < self.THRESHLOD:
             if draw:
                 self.SrcShow.point((i, j), color)
-
-        STEP = self.W
-        j_ = j + STEP if isRight else j - STEP
-        while self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][j_] < self.THRESHLOD:
-            j, j_ = j_, (j_ + STEP if isRight else j_ - STEP)
-            success()
-        STEP >>= 1
-        while STEP:
-            j_ = j + STEP if isRight else j - STEP
-            if self.PADDING <= j_ < self.M - self.PADDING and self.whiteCMA.val() - self.img[i][j_] < self.THRESHLOD:
-                j = j_
-                success()
-            STEP >>= 1
+            j += STEP
         return j
 
-    def getK(self) -> None:
+    def getK(self, draw: bool = False) -> None:
         "获取最远前沿所在的'斜率'K"
         self.SrcShow.point((self.N - 1, self.M >> 1), (255, 0, 0), 6)
         self.I = self.K = 0x7FFFFFFF
         for k in range(-9, 10):
-            i = self.searchLinear(k, False)
+            i = self.searchK(k, draw)
             if i < self.I:
                 self.I, self.K = i, k
         self.SrcShow.point((self.I, self.calcK(self.I, self.K)), (255, 0, 0))
         self.SrcShow.line((self.N - 1, self.M >> 1), (self.I, self.calcK(self.I, self.K)))
 
-    def getEdge(self):
+    def getEdge(self, draw: bool = False):
         "逐行获取边界点"
         for u in range(2):
             I = self.N - 1
             J = self.calcK(I, self.K)
-            while I >= self.I and self.whiteCMA.val() - self.img[I][J] < self.THRESHLOD:
-                j = self.searchRow(I, J, u)
+            while I >= self.I:
+                j = self.searchRow(I, J, u, draw)
                 if self.PADDING < j < self.M - self.PADDING - 1:
                     self.point((I, j), colors[u + 2])
                     self.distEliminator[u].update(I, j)

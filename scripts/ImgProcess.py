@@ -88,7 +88,7 @@ class ImgProcess:
 
     def applyConfig(self) -> None:
         "从main窗口获取图像处理所需参数"
-        self.THRESHLOD = 10
+        self.THRESHLOD = 80
         self.N, self.M = self.Config["N"], self.Config["M"]  # 图片的高和宽
         self.CUT = self.Config["CUT"]  # 裁剪最上面的多少行
         self.NOISE = self.Config["NOISE"]  # 灰度梯度最小有效值
@@ -123,45 +123,56 @@ class ImgProcess:
             self.fitter[u].reset()
         self.SrcShow.line((self.CUT, 0), (self.CUT, self.M))
 
-    def checkLR(self, i: int, j: int, isRight: bool, step: int = 2) -> int:
-        "计算左右差比和"
-        l = max(self.PADDING, j - step)
-        r = min(self.M - self.PADDING - 1, j + step)
-        dif = self.img[i][l] - self.img[i][r] if isRight else self.img[i][r] - self.img[i][l]
-        return (dif << 7) // (self.img[i][l] + self.img[i][r])
+    def sobel(self, i: int, j: int) -> int:
+        LRSTEP = 2
+        UDSTEP = 1
+        il = max(self.CUT, i - UDSTEP)
+        ir = min(self.N - 1, i + UDSTEP)
+        jl = max(self.PADDING, j - LRSTEP)
+        jr = min(self.M - self.PADDING - 1, j + LRSTEP)
+        return abs(self.img[il][jl] - self.img[ir][jr]) + abs(self.img[il][j] - self.img[ir][j]) + abs(self.img[i][jl] - self.img[i][jr]) + abs(self.img[il][jr] - self.img[ir][jl])
 
-    def checkU(self, i: int, j: int, step: int = 2) -> int:
-        "计算上下差比和"
-        l = max(self.CUT, i - step)
-        r = min(self.N - 1, i + 1)
-        return (self.img[r][j] - self.img[l][j] << 7) // (self.img[r][j] + self.img[l][j])
+    def isEdge(self, i: int, j: int):
+        "检查(i, j)是否是边界"
+        return self.sobel(i, j) >= self.THRESHLOD
+
+    def checkI(self, i: int) -> bool:
+        "检查i是否没有越界"
+        return self.CUT <= i < self.N
+
+    def checkJ(self, j: int) -> bool:
+        "检查j是否没有越界"
+        return self.PADDING <= j < self.M - self.PADDING
 
     def calcK(self, i, k):
         "以行号和'斜率'计算列号"
         b = (self.M >> 1) - (k * (self.N - 1) // 3)
         return ((k * i) // 3) + b
 
-    def searchK(self, k: float, draw: bool = False, color: Tuple[int] = None) -> int:
+    def searchK(self, k: int, draw: bool = False, color: Tuple[int] = None) -> int:
         "沿'斜率'k搜索黑色"
-        i = self.N - 2
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
-        while self.CUT < i - 1 and self.PADDING <= self.calcK(i - 1, k) < self.M - self.PADDING and self.checkU(i, self.calcK(i, k)) + self.checkLR(i, self.calcK(i, k), k < 0) < self.THRESHLOD:
+
+        i = self.N - 1
+        while True:
+            i -= 1
+            j = self.calcK(i, k)
             if draw:
                 self.SrcShow.point((i, self.calcK(i, k)), color)
-            i -= 1
-        return i
+            if not (self.checkI(i) and self.checkJ(j) and not self.isEdge(i, j)):
+                return i + 1
 
     def searchRow(self, i: int, j: int, isRight: bool, draw: bool = False, color: Tuple[int] = None) -> int:
         "按行搜索左右的黑色"
         if draw and color is None:
             color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
         STEP = 1 if isRight else -1
-        while self.PADDING <= j + STEP < self.M - self.PADDING and self.checkLR(i, j, isRight) < self.THRESHLOD:
+        while self.checkJ(j) and not self.isEdge(i, j):
             if draw:
                 self.SrcShow.point((i, j), color)
             j += STEP
-        return j
+        return j - STEP
 
     def getK(self, draw: bool = False) -> None:
         "获取最远前沿所在的'斜率'K"

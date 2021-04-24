@@ -4,61 +4,41 @@ from .transform import getPerMat, axisTransform, transfomImg
 from .utility import *
 from random import randint as rdit
 from math import sqrt
+from collections import deque
 
 colors = ((255, 0, 255), (255, 0, 0), (0, 255, 255), (0, 255, 0), (0, 127, 127), (127, 127, 0))
 
 
-class AngleEliminator:
-    "通过判断新的点和前几个点的夹角是否小于45度来判断是否保留这个点"
-    N = 4
+class PointEliminator:
+    "通过判断新的点和前面点的连线斜率是否在特定区间来决定是否保留这个点"
+    N = 2
 
-    def __init__(self, main: "ImgProcess", fitter: Polyfit2d, color: Tuple[int] = (255, 0, 255)):
+    def __init__(self, main: "ImgProcess", reverse: bool, fitter: Polyfit2d, color: Tuple[int] = (255, 0, 255)):
         self.main = main
+        self.reverse = reverse
         self.fitter = fitter
         self.color = color
         self.reset()
 
     def reset(self):
-        self.t = 0
-        self.I = [0] * self.N
-        self.J = [0] * self.N
+        self.I = deque(maxlen=self.N)
+        self.J = deque(maxlen=self.N)
 
-    def check(self, i: int, j: int):
-        if self.t < self.N:
-            return True
-        i1, i2 = self.I[(self.t - 1) % self.N] - self.I[(self.t - self.N) % self.N], i - self.I[(self.t - 2) % self.N]
-        j1, j2 = self.J[(self.t - 1) % self.N] - self.J[(self.t - self.N) % self.N], j - self.J[(self.t - 2) % self.N]
-        dot = i1 * i2 + j1 * j2
-        return dot > 0 and (dot * dot << 1) // ((i1 * i1 + j1 * j1) * (i2 * i2 + j2 * j2)) >= 1
-
-    def update(self, i: int, j: int):
-        if self.check(i, j):
-            self.main.point((i, j), self.color)
-            self.fitter.update(*axisTransform(i, j, self.main.PERMAT))
-            self.I[self.t % self.N], self.J[self.t % self.N] = i, j
-            self.t += 1
-
-
-class DistEliminator:
-    "通过判断相邻两个点的距离是否小于阈值来决定是否剔除这个点，并通过 AngleEliminator 进一步筛选"
-
-    def __init__(self, main: "ImgProcess", angleEliminator: AngleEliminator, color: Tuple[int] = (255, 0, 255)):
-        self.main = main
-        self.angleEliminator = angleEliminator
-        self.color = color
-        self.reset()
-
-    def reset(self):
-        self.t = 0
-        self.I = [0] * 2
-        self.J = [0] * 2
-
-    def update(self, i: int, j: int):
-        if (self.t == 1 and abs(self.J[0] - j) <= 2) or (self.t > 1 and abs(j - self.J[self.t & 1]) <= 5):
-            self.main.point((self.I[self.t & 1 ^ 1], self.J[self.t & 1 ^ 1]), self.color)
-            self.angleEliminator.update(self.I[self.t & 1 ^ 1], self.J[self.t & 1 ^ 1])
-        self.I[self.t & 1], self.J[self.t & 1] = i, j
-        self.t += 1
+    def update(self, i: float, j: float):
+        if len(self.I) != self.N:
+            self.I.append(i)
+            self.J.append(j)
+        else:
+            k = (j - self.J[0]) / (i - self.I[0])
+            if not self.reverse:
+                k = -k
+            if -0.2 < k < 1.5:
+                self.main.ppoint((i, j), self.color)
+                self.fitter.update(i, j)
+                self.I.append(i)
+                self.J.append(j)
+            else:
+                self.reset()
 
 
 class ImgProcess:
@@ -72,8 +52,7 @@ class ImgProcess:
         """
         self.Config = Config
         self.fitter = [Polyfit2d() for u in range(2)]
-        self.angleEliminator = [AngleEliminator(self, self.fitter[u], colors[u + 4]) for u in range(2)]
-        self.distEliminator = [DistEliminator(self, self.angleEliminator[u], colors[u]) for u in range(2)]
+        self.pointEliminator = [PointEliminator(self, u, self.fitter[u], colors[u + 4]) for u in range(2)]
         self.applyConfig()
 
     def setImg(self, img: np.ndarray) -> None:
@@ -88,7 +67,7 @@ class ImgProcess:
 
     def applyConfig(self) -> None:
         "从main窗口获取图像处理所需参数"
-        self.THRESHLOD = 80
+        self.THRESHLOD = 100
         self.N, self.M = self.Config["N"], self.Config["M"]  # 图片的高和宽
         self.CUT = self.Config["CUT"]  # 裁剪最上面的多少行
         self.NOISE = self.Config["NOISE"]  # 灰度梯度最小有效值
@@ -115,11 +94,17 @@ class ImgProcess:
         I, J = axisTransform(i, j, self.PERMAT)
         self.PerShow.point((I + self.I_SHIFT, J + self.J_SHIFT), color, r)
 
+    def ppoint(self, pt: Tuple[int], color: Tuple[int] = (255, 255, 0), r: int = 4) -> None:
+        "输入原图上的坐标，同时在原图和新图上画点"
+        i, j = pt
+        self.PerShow.point((i + self.I_SHIFT, j + self.J_SHIFT), color, r)
+        I, J = axisTransform(i, j, self.REPMAT)
+        self.SrcShow.point((I, J), color, r)
+
     def resetState(self) -> None:
         "重置状态"
         for u in range(2):
-            self.angleEliminator[u].reset()
-            self.distEliminator[u].reset()
+            self.pointEliminator[u].reset()
             self.fitter[u].reset()
         self.SrcShow.line((self.CUT, 0), (self.CUT, self.M))
 
@@ -172,7 +157,7 @@ class ImgProcess:
             if draw:
                 self.SrcShow.point((i, j), color)
             j += STEP
-        return j - STEP
+        return j
 
     def getK(self, draw: bool = False) -> None:
         "获取最远前沿所在的'斜率'K"
@@ -193,9 +178,10 @@ class ImgProcess:
                 j = self.searchRow(I, J, u, draw)
                 if self.PADDING < j < self.M - self.PADDING - 1:
                     self.point((I, j), colors[u + 2])
-                    self.distEliminator[u].update(I, j)
-                else:
-                    self.distEliminator[u].reset()
+                    self.pointEliminator[u].update(*axisTransform(I, j, self.PERMAT))
+                #     self.distEliminator[u].update(I, j)
+                # else:
+                #     self.distEliminator[u].reset()
 
     def fitEdge(self):
         "拟合边界"

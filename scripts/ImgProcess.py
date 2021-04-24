@@ -188,17 +188,14 @@ class ImgProcess:
     def getEdge(self, draw: bool = False):
         "逐行获取边界点"
         for u in range(2):
-            I = self.N - 1
-            J = self.calcK(I, self.K)
-            while I >= self.I:
+            for I in range(self.N - 1, self.I - 1, -1):
+                J = self.calcK(I, self.K)
                 j = self.searchRow(I, J, u, draw)
                 if self.PADDING < j < self.M - self.PADDING - 1:
                     self.point((I, j), colors[u + 2])
                     self.distEliminator[u].update(I, j)
                 else:
                     self.distEliminator[u].reset()
-                I -= 1
-                J = self.calcK(I, self.K)
 
     def fitEdge(self):
         "拟合边界"

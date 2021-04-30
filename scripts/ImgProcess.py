@@ -54,6 +54,7 @@ class ImgProcess:
         self.fitter = [Polyfit2d() for u in range(2)]
         self.pointEliminator = [PointEliminator(self, u, self.fitter[u], colors[u + 4]) for u in range(2)]
         self.applyConfig()
+        self.paraCurve = ParaCurve(self.PI, self.PJ)
 
     def setImg(self, img: np.ndarray) -> None:
         """设置当前需要处理的图像
@@ -188,23 +189,45 @@ class ImgProcess:
         self.PerShow.line((0, self.PJ + self.J_SHIFT), (self.N_, self.PJ + self.J_SHIFT))
         self.PerShow.point((self.PI + self.I_SHIFT, self.PJ + self.J_SHIFT), r=6)
         px = list(range(-self.I_SHIFT, self.N_ - self.I_SHIFT))
+
         for u in range(2):
-            if self.fitter[u].n > 3:
+            if self.fitter[u].n > 5:
                 self.fitter[u].fit()
+                self.fitter[u].shift(110, 14, u)
 
-                # py = [self.fitter[u].val(v) for v in px]
-                # self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
-                if self.fitter[u].n + u > self.fitter[u ^ 1].n:
-                    self.fitter[u].shift(110, 14, u)
-                    self.PerShow.point((self.PI - self.FITX + self.I_SHIFT, self.fitter[u].val(self.PI - self.FITX) + self.J_SHIFT))
-                    py = [self.fitter[u].val(v) for v in px]
-                    self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+        if min(self.fitter[u].n for u in range(2)) > 5:
+            N = sum(self.fitter[u].n for u in range(2))
+            a, b, c = [sum(self.fitter[u].res[i] * self.fitter[u].n for u in range(2)) / N for i in range(3)]
+        elif max(self.fitter[u].n for u in range(2)) > 5:
+            a, b, c = self.fitter[0].res if self.fitter[0].n > 5 else self.fitter[1].res
+        else:
+            return
+        self.paraCurve.set(a, b, c)
+        py = [self.paraCurve.val(v) for v in px]
+        self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
 
-                    self.fitter[u].get(self.PI, self.PJ, self.PI - self.FITX)
-                    py = [self.fitter[u].val_(v) for v in px]
-                    self.PerShow.polylines(px, py, (0, 127, 255), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
-                    r = 1 / (self.fitter[u].res_[0] * 2)
-                    self.PerShow.circle((self.PI + self.I_SHIFT, self.PJ + r + self.J_SHIFT), r, (127, 255, 127))
+        x = self.paraCurve.perpendicular()
+        y = self.paraCurve.val(x)
+        self.PerShow.line((self.PI + self.I_SHIFT, self.PJ + self.J_SHIFT), (round(x) + self.I_SHIFT, round(y) + self.J_SHIFT), (255, 255, 0))
+        self.ppoint((round(x), round(y)))
+
+        # for u in range(2):
+        #     if self.fitter[u].n > 3:
+        #         self.fitter[u].fit()
+
+        #         # py = [self.fitter[u].val(v) for v in px]
+        #         # self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+        #         if self.fitter[u].n + u > self.fitter[u ^ 1].n:
+        #             self.fitter[u].shift(110, 14, u)
+        #             self.PerShow.point((self.PI - self.FITX + self.I_SHIFT, self.fitter[u].val(self.PI - self.FITX) + self.J_SHIFT))
+        #             py = [self.fitter[u].val(v) for v in px]
+        #             self.PerShow.polylines(px, py, colors[u], i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+
+        #             # self.fitter[u].get(self.PI, self.PJ, self.PI - self.FITX)
+        #             # py = [self.fitter[u].val_(v) for v in px]
+        #             # self.PerShow.polylines(px, py, (0, 127, 255), i_shift=self.I_SHIFT, j_shift=self.J_SHIFT)
+        #             # r = 1 / (self.fitter[u].res_[0] * 2)
+        #             # self.PerShow.circle((self.PI + self.I_SHIFT, self.PJ + r + self.J_SHIFT), r, (127, 255, 127))
 
     def work(self):
         "图像处理的完整工作流程"

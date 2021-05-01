@@ -3,7 +3,6 @@
 https://blog.csdn.net/u011023470/article/details/111381695
 https://blog.csdn.net/u011023470/article/details/111381298
 """
-from typing import List, Tuple
 from math import sqrt
 
 

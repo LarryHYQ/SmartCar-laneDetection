@@ -12,11 +12,12 @@ from Config import *
 dt = 0.01
 
 
-def curvatureSolve(x0, y0, t0, x1, y1, t1):
+def curvatureSolve(x0: float, y0: float, a0: float, x1: float, y1: float, a1: float) -> float:
+    "根据初位置、角度和末位置、角度来计算当前位置应转的曲率"
     dx = x1 - x0
     dy = y1 - y0
-    alpha = (np.arctan2(dy, dx) - t0 + np.pi) % (2 * np.pi) - np.pi
-    beta = (t1 - t0 - alpha + np.pi) % (2 * np.pi) - np.pi
+    alpha = (np.arctan2(dy, dx) - a0 + np.pi) % (2 * np.pi) - np.pi
+    beta = (a1 - a0 - alpha + np.pi) % (2 * np.pi) - np.pi
     rho = sqrt(dx * dx + dy * dy)
     v = K_RHO * rho
     w = K_ALPHA * alpha + K_BETA * beta

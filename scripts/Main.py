@@ -1,7 +1,6 @@
 class Main:
     def __init__(self, Config) -> None:
         from tkinter import Tk
-        from .ImgProcess import ImgProcess
         from .ImgWindow import ImgWindow
 
         self.Config = Config
@@ -13,8 +12,8 @@ class Main:
         self.mainloop = self.root.mainloop
 
     def setProperty(self) -> None:
-        from tkinter import Canvas, StringVar
-        from tkinter.ttk import LabelFrame, Combobox, Button, Label, Frame, Entry
+        from tkinter import StringVar
+        from tkinter.ttk import Button, Label, Entry
 
         self.indexLabel = Label(self.root, text="索引:")
         self.indexVar = StringVar()

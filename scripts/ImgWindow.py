@@ -1,4 +1,5 @@
 from .Main import Main
+from Config import *
 
 
 class ImgWindow:
@@ -7,8 +8,7 @@ class ImgWindow:
         from .ImgProcess import ImgProcess
 
         self.main = main
-        self.Config = main.Config
-        self.imgProcess = ImgProcess(self.Config["IMGPROCESS"])
+        self.imgProcess = ImgProcess()
         self.root = Toplevel(self.main.root)
         self.setProperty()
         self.setImg = self.imgProcess.setImg
@@ -19,9 +19,9 @@ class ImgWindow:
         from tkinter.ttk import LabelFrame
 
         self.srcFrame = LabelFrame(self.root, text="原图")
-        self.srcCanvas = Canvas(self.srcFrame, height=self.Config["IMGPROCESS"]["N"] * self.Config["IMGPROCESS"]["SRCZOOM"], width=self.Config["IMGPROCESS"]["M"] * self.Config["IMGPROCESS"]["SRCZOOM"])
+        self.srcCanvas = Canvas(self.srcFrame, height=N * SRCZOOM, width=M * SRCZOOM)
         self.perFrame = LabelFrame(self.root, text="逆透视变换")
-        self.perCanvas = Canvas(self.perFrame, height=self.Config["IMGPROCESS"]["N_"] * self.Config["IMGPROCESS"]["PERZOOM"], width=self.Config["IMGPROCESS"]["M_"] * self.Config["IMGPROCESS"]["PERZOOM"])
+        self.perCanvas = Canvas(self.perFrame, height=N_ * PERZOOM, width=M_ * PERZOOM)
 
         self.root.title("图像")
         self.root.resizable(False, False)

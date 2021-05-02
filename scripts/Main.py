@@ -23,10 +23,12 @@ class Main:
         self.indexEntry.bind("<Return>", lambda e: (self.indexCheck(), self.applyImg()))
         self.indexButton = Button(self.root, text="应用", command=self.applyImg, width=5)
         self.deletButton = Button(self.root, text="删除", command=self.delImg, width=5)
+        self.writeButton = Button(self.root, text="保存逆透视", command=self.writePermat)
         self.indexLabel.grid(row=0, column=0, padx=3, pady=3)
         self.indexEntry.grid(row=0, column=1, padx=3, pady=3)
         self.indexButton.grid(row=0, column=2, padx=3, pady=3)
         self.deletButton.grid(row=0, column=3, padx=3, pady=3)
+        self.writeButton.grid(row=1, column=0, padx=3, pady=3, columnspan=2, sticky="w")
 
         self.setTitleCount()
         self.root.resizable(False, False)
@@ -34,6 +36,12 @@ class Main:
         self.root.attributes("-toolwindow", True)
 
         self.root.protocol("WM_DELETE_WINDOW", self._onClose)
+
+    def writePermat(self):
+        from .transform import getPerMat, writeFile
+        from Config import SRCARR, PERARR
+
+        writeFile(getPerMat(SRCARR, PERARR))
 
     def setTitleCount(self):
         self.root.title("设置 - 共%d张" % len(self.names))

@@ -69,7 +69,7 @@ def writeFile(perMat: np.array) -> None:
         perMat (np.array): 变换矩阵
     """
     with open("PERMAT.cpp", "w") as f:
-        f.write("typedef unsigned int uint32;  // clang-format off\nconst uint32 PERMAT[9]={0x")
+        f.write("typedef unsigned int uint32;  // clang-format off\nextern const uint32 PERMAT[9]{0x")
         tmp = perMat.tobytes().hex(" ", 4).split()
         tmp = tmp = ["".join(a[i : i + 2] for i in range(6, -1, -2)) for a in tmp]
         f.write(",0x".join(tmp) + "};")

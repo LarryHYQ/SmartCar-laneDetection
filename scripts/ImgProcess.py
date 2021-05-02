@@ -167,8 +167,8 @@ class ImgProcess:
                     self.point((I, j), COLORS[u + 2])
                     self.pointEliminator.update(*axisTransform(I, j, self.PERMAT))
 
-    def fitEdge(self) -> bool:
-        "拟合边界"
+    def getMid(self) -> bool:
+        "获取中线"
         self.PerShow.point((self.PI + I_SHIFT, self.PJ + J_SHIFT), r=6)
         px = list(range(-I_SHIFT, N_ - I_SHIFT))
 
@@ -216,7 +216,7 @@ class ImgProcess:
         tx, ty = move_to_pose(self.PI, self.PJ, np.pi, self.X1, self.Y1, atan(k) + np.pi)
         self.PerShow.polylines(tx, ty, (0, 255, 0), i_shift=I_SHIFT, j_shift=J_SHIFT)
 
-        rho = curvatureSolve(self.PI, self.PJ, np.pi, self.X1, self.Y1, atan(k) + np.pi)
+        rho = curvatureSolve(self.PI, self.PJ, self.X1, self.Y1, atan(k) + np.pi)
         if rho != 0:
             r = 1 / rho
             self.PerShow.circle((self.PI + I_SHIFT, self.PJ - r + J_SHIFT), abs(r))
@@ -228,7 +228,7 @@ class ImgProcess:
         self.resetState()
         self.getK()
         self.getEdge()
-        if self.fitEdge():
+        if self.getMid():
             self.getTarget()
             self.solve()
 

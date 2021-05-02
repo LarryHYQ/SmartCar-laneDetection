@@ -5,19 +5,28 @@ https://github.com/AtsushiSakai/PythonRobotics/blob/master/PathTracking/move_to_
 
 
 import numpy as np
-from math import sqrt
+from math import sqrt, atan2
 from Config import *
 
 
 dt = 0.01
 
 
-def curvatureSolve(x0: float, y0: float, a0: float, x1: float, y1: float, a1: float) -> float:
-    "根据初位置、角度和末位置、角度来计算当前位置应转的曲率"
+def curvatureSolve(x0: float, y0: float, x1: float, y1: float, a1: float) -> float:
+    "根据初位置和末位置、角度来计算当前位置应转的曲率"
     dx = x1 - x0
     dy = y1 - y0
-    alpha = (np.arctan2(dy, dx) - a0 + np.pi) % (2 * np.pi) - np.pi
-    beta = (a1 - a0 - alpha + np.pi) % (2 * np.pi) - np.pi
+
+    alpha = atan2(dy, dx) - np.pi
+    if alpha < -np.pi:
+        alpha += 2 * np.pi
+
+    beta = a1 - alpha - np.pi
+    if beta < -np.pi:
+        beta += 2 * np.pi
+    elif beta > np.pi:
+        beta = 2 * np.pi - beta
+
     rho = sqrt(dx * dx + dy * dy)
     v = K_RHO * rho
     w = K_ALPHA * alpha + K_BETA * beta

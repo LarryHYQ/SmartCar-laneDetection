@@ -35,7 +35,7 @@ class ParaCurve:
 
         x = self.PI
         for _ in range(5):
-            x = x - calc(x) / calcd(x)
+            x -= calc(x) / calcd(x)
         return x
 
 

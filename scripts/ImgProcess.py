@@ -6,41 +6,41 @@ from random import randint
 from math import atan
 from Config import *
 
-colors = ((255, 0, 255), (255, 0, 0), (0, 255, 255), (0, 255, 0), (0, 127, 127), (127, 127, 0))
-
 
 class PointEliminator:
     "通过判断新的点和前面点的连线斜率是否在特定区间来决定是否保留这个点"
 
-    def __init__(self, main: "ImgProcess", reverse: bool, fitter: Polyfit2d, color: Tuple[int] = (255, 0, 255)):
+    def __init__(self, main: "ImgProcess") -> None:
         self.main = main
-        self.reverse = reverse
-        self.fitter = fitter
-        self.color = color
         self.I = [0.0] * 2
         self.J = [0.0] * 2
-        self.n = 0
 
-    def reset(self):
+    def reset(self, invert: bool, fitter: Polyfit2d, color: Tuple[int] = (255, 0, 255)) -> None:
         self.n = 0
+        self.invert = invert
+        self.fitter = fitter
+        self.color = color
 
-    def update(self, i: float, j: float):
+    def insert(self, i: float, j: float) -> None:
+        self.I[self.n & 1] = i
+        self.J[self.n & 1] = j
+        self.n += 1
+
+    def check(self, i: float, j: float) -> bool:
+        k = (j - self.J[self.n & 1]) / (i - self.I[self.n & 1])
+        if self.invert:
+            k = -k
+        return K_LOW < k < K_HIGH
+
+    def update(self, i: float, j: float) -> None:
         if self.n < 2:
-            self.I[self.n] = i
-            self.J[self.n] = j
-            self.n += 1
+            self.insert(i, j)
+        elif self.check(i, j):
+            self.insert(i, j)
+            self.fitter.update(i, j)
+            self.main.ppoint((i, j), self.color)
         else:
-            k = (j - self.J[self.n & 1]) / (i - self.I[self.n & 1])
-            if not self.reverse:
-                k = -k
-            if KLOW < k < KHIGH:
-                self.main.ppoint((i, j), self.color)
-                self.fitter.update(i, j)
-                self.I[self.n & 1] = i
-                self.J[self.n & 1] = j
-                self.n += 1
-            else:
-                self.n = 0
+            self.n = 0
 
 
 class ImgProcess:
@@ -53,7 +53,7 @@ class ImgProcess:
             Config (dict): 通过 getConfig() 获取的配置
         """
         self.fitter = [Polyfit2d() for u in range(2)]
-        self.pointEliminator = [PointEliminator(self, u, self.fitter[u], colors[u + 4]) for u in range(2)]
+        self.pointEliminator = PointEliminator(self)
         self.applyConfig()
         self.paraCurve = ParaCurve(self.PI, self.PJ)
 
@@ -92,7 +92,6 @@ class ImgProcess:
     def resetState(self) -> None:
         "重置状态"
         for u in range(2):
-            self.pointEliminator[u].reset()
             self.fitter[u].reset()
         self.SrcShow.line((CUT, 0), (CUT, M))
 
@@ -160,14 +159,15 @@ class ImgProcess:
     def getEdge(self, draw: bool = False):
         "逐行获取边界点"
         for u in range(2):
+            self.pointEliminator.reset(u ^ 1, self.fitter[u], COLORS[u + 4])
             for I in range(N - 1, self.I - 1, -1):
                 J = self.calcK(I, self.K)
                 j = self.searchRow(I, J, u, draw)
                 if PADDING < j < M - PADDING - 1:
-                    self.point((I, j), colors[u + 2])
-                    self.pointEliminator[u].update(*axisTransform(I, j, self.PERMAT))
+                    self.point((I, j), COLORS[u + 2])
+                    self.pointEliminator.update(*axisTransform(I, j, self.PERMAT))
 
-    def fitEdge(self):
+    def fitEdge(self) -> bool:
         "拟合边界"
         self.PerShow.point((self.PI + I_SHIFT, self.PJ + J_SHIFT), r=6)
         px = list(range(-I_SHIFT, N_ - I_SHIFT))
@@ -175,7 +175,7 @@ class ImgProcess:
         for u in range(2):
             if self.fitter[u].n > 5:
                 self.fitter[u].fit()
-                self.fitter[u].shift(110, 14, u)
+                self.fitter[u].shift(X_POS, WIDTH, u)
 
         if min(self.fitter[u].n for u in range(2)) > 5:
             N = sum(self.fitter[u].n for u in range(2))
@@ -183,13 +183,12 @@ class ImgProcess:
         elif max(self.fitter[u].n for u in range(2)) > 5:
             a, b, c = self.fitter[0].res if self.fitter[0].n > 5 else self.fitter[1].res
         else:
-            return
-        for u in range(2):
-            if self.fitter[u].n + u > self.fitter[u ^ 1].n:
-                a, b, c = self.fitter[u].res
+            return False
+
         self.paraCurve.set(a, b, c)
         py = [self.paraCurve.val(v) for v in px]
-        self.PerShow.polylines(px, py, colors[u], i_shift=I_SHIFT, j_shift=J_SHIFT)
+        self.PerShow.polylines(px, py, COLORS[u], i_shift=I_SHIFT, j_shift=J_SHIFT)
+        return True
 
     def getTarget(self):
         "获取参考点位置"
@@ -229,9 +228,9 @@ class ImgProcess:
         self.resetState()
         self.getK()
         self.getEdge()
-        self.fitEdge()
-        self.getTarget()
-        self.solve()
+        if self.fitEdge():
+            self.getTarget()
+            self.solve()
 
 
 __all__ = ["ImgProcess"]

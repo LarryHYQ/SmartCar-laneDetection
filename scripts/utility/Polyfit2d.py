@@ -14,7 +14,7 @@ class Polyfit2d:
         self.n = 0
         self.x = self.y = self.x2 = self.x3 = self.x4 = self.xy = self.x2y = 0
 
-    def update(self, x: float, y: float) -> None:
+    def update(self, x_: float, y_: float) -> None:
         """增加一组数据
 
         Args:
@@ -22,14 +22,14 @@ class Polyfit2d:
             y (float): 因变量
         """
         self.n += 1
-        self.x += x
-        self.y += y
-        x2 = x * x
-        self.x2 += x2
-        self.x3 += x2 * x
-        self.x4 += x2 * x2
-        self.xy += x * y
-        self.x2y += x2 * y
+        self.x += x_
+        self.y += y_
+        x2_ = x_ * x_
+        self.x2 += x2_
+        self.x3 += x2_ * x_
+        self.x4 += x2_ * x2_
+        self.xy += x_ * y_
+        self.x2y += x2_ * y_
 
     def fit(self) -> None:
         "最终拟合"
@@ -45,24 +45,24 @@ class Polyfit2d:
         C = self.y - self.x2 * A - self.x * B
         self.res = [A, B, C]
 
-    def shift(self, x0: int, d: float, direction: bool) -> None:
+    def shift(self, X_POS: int, WIDTH: float, direction: bool) -> None:
         """将拟合得到的抛物线延x0处的切线的垂线平移一段距离
 
         Args:
-            x0 (int): 原抛物线上目标点的横坐标
-            d (float): 所要平移的距离
+            X_POS (int): 原抛物线上目标点的横坐标
+            WIDTH (float): 所要平移的距离
             direction (bool): 平移方向
 
         Returns:
             List[float]: 新抛物线的3个参数
         """
         A, B, C = self.res
-        t = (B - A * x0 * x0 - B * x0 - C) / x0
-        q = d / sqrt(t * t + 1)
+        t = (B - A * X_POS * X_POS - B * X_POS - C) / X_POS
+        q = WIDTH / sqrt(t * t + 1)
         if direction:
             q = -q
         p = t * q
-        if 2 * A * x0 + B < 0:
+        if 2 * A * X_POS + B < 0:
             p = -p
         self.res = [A, B - 2 * A * p, A * p * p - B * p + C + q]
 

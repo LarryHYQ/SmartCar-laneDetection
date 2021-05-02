@@ -1,10 +1,9 @@
 import numpy as np
-from typing import List, Tuple
+from typing import Tuple
 from .transform import getPerMat, axisTransform, transfomImg
 from .utility import *
-from random import randint as rdit
-from math import sqrt, atan
-from collections import deque
+from random import randint
+from math import atan
 from Config import *
 
 colors = ((255, 0, 255), (255, 0, 0), (0, 255, 255), (0, 255, 0), (0, 127, 127), (127, 127, 0))
@@ -12,34 +11,36 @@ colors = ((255, 0, 255), (255, 0, 0), (0, 255, 255), (0, 255, 0), (0, 127, 127),
 
 class PointEliminator:
     "通过判断新的点和前面点的连线斜率是否在特定区间来决定是否保留这个点"
-    N = 2
 
     def __init__(self, main: "ImgProcess", reverse: bool, fitter: Polyfit2d, color: Tuple[int] = (255, 0, 255)):
         self.main = main
         self.reverse = reverse
         self.fitter = fitter
         self.color = color
-        self.reset()
+        self.I = [0.0] * 2
+        self.J = [0.0] * 2
+        self.n = 0
 
     def reset(self):
-        self.I = deque(maxlen=self.N)
-        self.J = deque(maxlen=self.N)
+        self.n = 0
 
     def update(self, i: float, j: float):
-        if len(self.I) != self.N:
-            self.I.append(i)
-            self.J.append(j)
+        if self.n < 2:
+            self.I[self.n] = i
+            self.J[self.n] = j
+            self.n += 1
         else:
-            k = (j - self.J[0]) / (i - self.I[0])
+            k = (j - self.J[self.n & 1]) / (i - self.I[self.n & 1])
             if not self.reverse:
                 k = -k
             if KLOW < k < KHIGH:
                 self.main.ppoint((i, j), self.color)
                 self.fitter.update(i, j)
-                self.I.append(i)
-                self.J.append(j)
+                self.I[self.n & 1] = i
+                self.J[self.n & 1] = j
+                self.n += 1
             else:
-                self.reset()
+                self.n = 0
 
 
 class ImgProcess:
@@ -96,8 +97,7 @@ class ImgProcess:
         self.SrcShow.line((CUT, 0), (CUT, M))
 
     def sobel(self, i: int, j: int) -> int:
-        LRSTEP = 2
-        UDSTEP = 1
+        "魔改的sobel算子"
         il = max(CUT, i - UDSTEP)
         ir = min(N - 1, i + UDSTEP)
         jl = max(PADDING, j - LRSTEP)
@@ -124,7 +124,7 @@ class ImgProcess:
     def searchK(self, k: int, draw: bool = False, color: Tuple[int] = None) -> int:
         "沿'斜率'k搜索黑色"
         if draw and color is None:
-            color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
+            color = (randint(0, 255), randint(0, 255), randint(0, 255))
 
         i = N - 1
         while True:
@@ -138,7 +138,7 @@ class ImgProcess:
     def searchRow(self, i: int, j: int, isRight: bool, draw: bool = False, color: Tuple[int] = None) -> int:
         "按行搜索左右的黑色"
         if draw and color is None:
-            color = (rdit(0, 255), rdit(0, 255), rdit(0, 255))
+            color = (randint(0, 255), randint(0, 255), randint(0, 255))
         STEP = 1 if isRight else -1
         while self.checkJ(j) and not self.isEdge(i, j):
             if draw:

@@ -3,7 +3,9 @@ N, M = 80, 188  # 图片的高和宽
 CUT = 20  # 裁剪最上面的多少行
 PADDING = 1  # 舍弃左右边界的大小
 
-# 边界获取
+# sobel
+LRSTEP = 2
+UDSTEP = 1
 THRESHLOD = 100  # sobel的阈值
 
 # 用于排除点的斜率范围

@@ -72,8 +72,9 @@ class ImgProcess:
         self.PERMAT = getPerMat(SRCARR, PERARR)  # 逆透视变换矩阵
         self.REPMAT = getPerMat(PERARR, SRCARR)  # 反向逆透视变换矩阵
 
-        self.SI, self.SJ = N + 10, M >> 1
+        self.SI, self.SJ = N - 10, M >> 1
         self.PI, self.PJ = axisTransform(self.SI, self.SJ, self.PERMAT)
+        print(f"PI: {self.PI}\nPJ: {self.PJ}")
 
     def point(self, pt: Tuple[int], color: Tuple[int] = (255, 255, 0), r: int = 4) -> None:
         "输入原图上的坐标，同时在原图和新图上画点"
@@ -160,7 +161,7 @@ class ImgProcess:
         "逐行获取边界点"
         for u in range(2):
             self.pointEliminator.reset(u ^ 1, self.fitter[u], COLORS[u + 4])
-            for I in range(N - 1, self.I - 1, -1):
+            for I in range(N - 1, self.I - 1, -2):
                 J = self.calcK(I, self.K)
                 j = self.searchRow(I, J, u, draw)
                 if PADDING < j < M - PADDING - 1:

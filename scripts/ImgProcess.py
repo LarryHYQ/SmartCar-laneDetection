@@ -72,8 +72,9 @@ class ImgProcess:
         self.PERMAT = getPerMat(SRCARR, PERARR)  # 逆透视变换矩阵
         self.REPMAT = getPerMat(PERARR, SRCARR)  # 反向逆透视变换矩阵
 
-        self.SI, self.SJ = N - 10, M >> 1
+        self.SI, self.SJ = N + 1, M >> 1
         self.PI, self.PJ = axisTransform(self.SI, self.SJ, self.PERMAT)
+        self.PI = PI
         print(f"PI: {self.PI}\nPJ: {self.PJ}")
 
     def point(self, pt: Tuple[int], color: Tuple[int] = (255, 255, 0), r: int = 4) -> None:
@@ -168,7 +169,7 @@ class ImgProcess:
                     self.point((I, j), COLORS[u + 2])
                     self.pointEliminator.update(*axisTransform(I, j, self.PERMAT))
 
-    def getMid(self) -> bool:
+    def getMid(self, drawEdge: bool = False) -> bool:
         "获取中线"
         self.PerShow.point((self.PI + I_SHIFT, self.PJ + J_SHIFT), r=6)
         px = list(range(-I_SHIFT, N_ - I_SHIFT))
@@ -176,7 +177,13 @@ class ImgProcess:
         for u in range(2):
             if self.fitter[u].n > 5:
                 self.fitter[u].fit()
+                if drawEdge:
+                    py = [self.fitter[u].val(v) for v in px]
+                    self.PerShow.polylines(px, py, COLORS[u + 2], i_shift=I_SHIFT, j_shift=J_SHIFT)
                 self.fitter[u].shift(X_POS, WIDTH, u)
+                if drawEdge:
+                    py = [self.fitter[u].val(v) for v in px]
+                    self.PerShow.polylines(px, py, COLORS[u + 2], i_shift=I_SHIFT, j_shift=J_SHIFT)
 
         if min(self.fitter[u].n for u in range(2)) > 5:
             N = sum(self.fitter[u].n for u in range(2))
@@ -229,9 +236,9 @@ class ImgProcess:
         self.resetState()
         self.getK()
         self.getEdge()
-        if self.getMid():
+        if self.getMid(True):
             self.getTarget()
-            self.solve()
+            # self.solve()
 
 
 __all__ = ["ImgProcess"]

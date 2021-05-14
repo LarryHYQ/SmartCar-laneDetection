@@ -66,6 +66,11 @@ class Polyfit2d:
             p = -p
         self.res = [A, B - 2 * A * p, A * p * p - B * p + C + q]
 
+    def val(self, x: float) -> float:
+        "计算函数值"
+        A, B, C = self.res
+        return A * x * x + B * x + C
+
 
 __all__ = ["Polyfit2d"]
 

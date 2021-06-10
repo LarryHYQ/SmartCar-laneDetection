@@ -64,6 +64,12 @@ class ImgProcess:
             img (np.ndarray): 使用 cv2.imread(xxx, 0) 读入的灰度图
         """
         self.img = img.tolist()
+
+        # for i in range(N):
+        #     for j in range(M):
+        #         img[i, j] = 255 if self.isStripes(i, j) else 0
+        # self.img = img.tolist()
+
         self.SrcShow = ZoomedImg(img, SRCZOOM)
         self.PerShow = ZoomedImg(transfomImg(img, self.PERMAT, N, M, N_, M_, I_SHIFT, J_SHIFT), PERZOOM)
 
@@ -97,13 +103,16 @@ class ImgProcess:
             self.fitter[u].reset()
         self.SrcShow.line((CUT, 0), (CUT, M))
 
-    def sobel(self, i: int, j: int) -> int:
+    def sobel(self, i: int, j: int, lr: int = LRSTEP) -> int:
         "魔改的sobel算子"
         il = max(CUT, i - UDSTEP)
         ir = min(N - 1, i + UDSTEP)
-        jl = max(PADDING, j - LRSTEP)
-        jr = min(M - PADDING - 1, j + LRSTEP)
+        jl = max(PADDING, j - lr)
+        jr = min(M - PADDING - 1, j + lr)
         return abs(self.img[il][jl] - self.img[ir][jr]) + abs(self.img[il][j] - self.img[ir][j]) + abs(self.img[i][jl] - self.img[i][jr]) + abs(self.img[il][jr] - self.img[ir][jl])
+
+    def isStripes(self, i: int, j: int) -> bool:
+        return self.sobel(i, j, 1) >= THRESHLOD
 
     def isEdge(self, i: int, j: int):
         "检查(i, j)是否是边界"
@@ -151,7 +160,7 @@ class ImgProcess:
         "获取最远前沿所在的'斜率'K"
         self.SrcShow.point((N - 1, M >> 1), (255, 0, 0), 6)
         self.I = self.K = 0x7FFFFFFF
-        for k in range(-9, 10):
+        for k in range(-6, 7):
             i = self.searchK(k, draw)
             if i < self.I:
                 self.I, self.K = i, k
@@ -234,9 +243,9 @@ class ImgProcess:
     def work(self):
         "图像处理的完整工作流程"
         self.resetState()
-        self.getK()
+        self.getK(True)
         self.getEdge()
-        if self.getMid(True):
+        if self.getMid():
             self.getTarget()
             # self.solve()
 

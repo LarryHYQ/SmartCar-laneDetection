@@ -1,0 +1,7 @@
+# .gitignore
+
+.vscode/
+__pycache__/
+tests/
+config.ini
+PERMAT.cpp

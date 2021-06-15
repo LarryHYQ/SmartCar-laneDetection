@@ -5,6 +5,7 @@ from .utility import *
 from random import randint
 from math import atan
 from Config import *
+from math import sqrt, cos, acos, degrees, radians, atan2
 
 
 class PointEliminator:
@@ -54,6 +55,7 @@ class ImgProcess:
         """
         self.fitter = [Polyfit2d() for u in range(2)]
         self.pointEliminator = PointEliminator(self)
+        self.circleFit = CircleFit()
         self.applyConfig()
         self.paraCurve = ParaCurve(self.PI, self.PJ)
 
@@ -67,7 +69,7 @@ class ImgProcess:
 
         # for i in range(N):
         #     for j in range(M):
-        #         img[i, j] = 255 if self.isStripes(i, j) else 0
+        #         img[i, j] = 255 if self.isEdge(i, j) else 0
         # self.img = img.tolist()
 
         self.SrcShow = ZoomedImg(img, SRCZOOM)
@@ -81,7 +83,8 @@ class ImgProcess:
         self.SI, self.SJ = N + 1, M >> 1
         self.PI, self.PJ = axisTransform(self.SI, self.SJ, self.PERMAT)
         self.PI = PI
-        print(f"PI: {self.PI}\nPJ: {self.PJ}")
+        print(f"PI {self.PI}\nPJ {self.PJ}")
+        print(f"FORKLOW {cos(radians(FORKHIGH))}f\nFORKHIGH {cos(radians(FORKLOW))}f")
 
     def point(self, pt: Tuple[int], color: Tuple[int] = (255, 255, 0), r: int = 4) -> None:
         "输入原图上的坐标，同时在原图和新图上画点"
@@ -101,7 +104,12 @@ class ImgProcess:
         "重置状态"
         for u in range(2):
             self.fitter[u].reset()
+        self.frontMid = [0] * 5
         self.SrcShow.line((CUT, 0), (CUT, M))
+        self.SrcShow.line((FORKUPCUT, 0), (FORKUPCUT, M))
+        self.SrcShow.line((N - FORKDOWNCUT, 0), (N - FORKDOWNCUT, M))
+        self.SrcShow.line((0, CORNERCUT), (N, 0))
+        self.SrcShow.line((0, M - CORNERCUT), (N, M))
 
     def sobel(self, i: int, j: int, lr: int = LRSTEP) -> int:
         "魔改的sobel算子"
@@ -110,9 +118,6 @@ class ImgProcess:
         jl = max(PADDING, j - lr)
         jr = min(M - PADDING - 1, j + lr)
         return abs(self.img[il][jl] - self.img[ir][jr]) + abs(self.img[il][j] - self.img[ir][j]) + abs(self.img[i][jl] - self.img[i][jr]) + abs(self.img[il][jr] - self.img[ir][jl])
-
-    def isStripes(self, i: int, j: int) -> bool:
-        return self.sobel(i, j, 1) >= THRESHLOD
 
     def isEdge(self, i: int, j: int):
         "检查(i, j)是否是边界"
@@ -125,6 +130,10 @@ class ImgProcess:
     def checkJ(self, j: int) -> bool:
         "检查j是否没有越界"
         return PADDING <= j < M - PADDING
+
+    def checkCornerIJ(self, i: int, j: int) -> bool:
+        "找前沿线时限定范围"
+        return self.checkI(i) and j * N > CORNERCUT * (N - i) and N * j < CORNERCUT * i + N * (M - CORNERCUT)
 
     def calcK(self, i, k):
         "以行号和'斜率'计算列号"
@@ -142,7 +151,7 @@ class ImgProcess:
             j = self.calcK(i, k)
             if draw:
                 self.SrcShow.point((i, self.calcK(i, k)), color)
-            if not (self.checkI(i) and self.checkJ(j) and not self.isEdge(i, j)):
+            if not (self.checkCornerIJ(i, j) and not self.isEdge(i, j)):
                 return i + 1
 
     def searchRow(self, i: int, j: int, isRight: bool, draw: bool = False, color: Tuple[int] = None) -> int:
@@ -162,6 +171,8 @@ class ImgProcess:
         self.I = self.K = 0x7FFFFFFF
         for k in range(-6, 7):
             i = self.searchK(k, draw)
+            if -2 <= k <= 2:
+                self.frontMid[k + 2] = i
             if i < self.I:
                 self.I, self.K = i, k
         self.SrcShow.point((self.I, self.calcK(self.I, self.K)), (255, 0, 0))
@@ -171,12 +182,19 @@ class ImgProcess:
         "逐行获取边界点"
         for u in range(2):
             self.pointEliminator.reset(u ^ 1, self.fitter[u], COLORS[u + 4])
+            self.circleFit.reset()
             for I in range(N - 1, self.I - 1, -2):
                 J = self.calcK(I, self.K)
                 j = self.searchRow(I, J, u, draw)
-                if PADDING < j < M - PADDING - 1:
+                if self.checkJ(j):
                     self.point((I, j), COLORS[u + 2])
-                    self.pointEliminator.update(*axisTransform(I, j, self.PERMAT))
+                    pi, pj = axisTransform(I, j, self.PERMAT)
+                    self.pointEliminator.update(pi, pj)
+                    self.circleFit.update(pi, pj)
+                else:
+                    if self.circleFit.lost():
+                        self.PerShow.circle((self.circleFit.X + I_SHIFT, self.circleFit.Y + J_SHIFT), self.circleFit.R)
+                        # print(self.circleFit.X, self.circleFit.Y, self.circleFit.R)
 
     def getMid(self, drawEdge: bool = False) -> bool:
         "获取中线"
@@ -228,26 +246,54 @@ class ImgProcess:
         self.ppoint((round(self.X1), round(self.Y1)), (255, 127, 255), 6)
 
     def solve(self):
-        "生成路径并获得曲率"
-        k = self.paraCurve.vald(self.X1)
-        tx, ty = move_to_pose(self.PI, self.PJ, np.pi, self.X1, self.Y1, atan(k) + np.pi)
-        self.PerShow.polylines(tx, ty, (0, 255, 0), i_shift=I_SHIFT, j_shift=J_SHIFT)
+        "获取目标偏航角"
+        self.PerShow.point((self.PI - X0 + I_SHIFT, self.PJ + J_SHIFT), (255, 0, 0), 6)
+        self.PerShow.line((self.PI - X0 + I_SHIFT, self.PJ + J_SHIFT), (self.X1 + I_SHIFT, self.Y1 + J_SHIFT))
+        targetYaw = atan2(self.Y1 - self.PJ, self.PI - X0 - self.X1)
+        self.PerShow.putText("Yaw:%.5f" % targetYaw, (120, 20))
 
-        rho = curvatureSolve(self.PI, self.PJ, self.X1, self.Y1, atan(k) + np.pi)
-        if rho != 0:
-            r = 1 / rho
-            self.PerShow.circle((self.PI + I_SHIFT, self.PJ - r + J_SHIFT), abs(r))
-        else:
-            self.PerShow.line((0, self.PJ + J_SHIFT), (N_, self.PJ + J_SHIFT))
+    def checkFork(self):
+        "通过前沿点检查三岔路口"
+        pi, pj = [0.0] * 5, [0.0] * 5
+
+        def checkForkAngle(i: int):
+            def vectorCos(x1: float, y1: float, x2: float, y2: float):
+                return (x1 * x2 + y1 * y2) / sqrt((x1 * x1 + y1 * y1) * (x2 * x2 + y2 * y2))
+
+            x1 = pi[i + 1] - pi[i + 0]
+            x2 = pi[i + 2] - pi[i + 3]
+            if x1 < 0 or x2 < 0:
+                return False
+            res = vectorCos(x1, pj[i + 0] - pj[i + 1], x2, pj[i + 3] - pj[i + 2])
+            self.PerShow.putText("%.2f" % degrees(acos(res)), (100 + 5 * i, 20))
+            return cos(radians(FORKHIGH)) < res < cos(radians(FORKLOW))
+
+        for k in range(1, 4):
+            if not FORKUPCUT < self.frontMid[k] < N - FORKDOWNCUT:
+                return False
+            pi[k], pj[k] = axisTransform(self.frontMid[k], self.calcK(self.frontMid[k], -2 + k), self.PERMAT)
+            self.ppoint((pi[k], pj[k]))
+        if FORKUPCUT < self.frontMid[0] < N - FORKDOWNCUT:
+            pi[0], pj[0] = axisTransform(self.frontMid[0], self.calcK(self.frontMid[0], -2), self.PERMAT)
+            self.ppoint((pi[0], pj[0]))
+            if checkForkAngle(0):
+                return True
+        if FORKUPCUT < self.frontMid[4] < N - FORKDOWNCUT:
+            pi[4], pj[4] = axisTransform(self.frontMid[4], self.calcK(self.frontMid[4], 2), self.PERMAT)
+            self.ppoint((pi[4], pj[4]))
+            if checkForkAngle(1):
+                return True
+        return False
 
     def work(self):
         "图像处理的完整工作流程"
         self.resetState()
         self.getK(True)
+        self.PerShow.putText("Fork:" + str(self.checkFork()), (110, 20))
         self.getEdge()
-        if self.getMid():
+        if self.getMid(True):
             self.getTarget()
-            # self.solve()
+            self.solve()
 
 
 __all__ = ["ImgProcess"]

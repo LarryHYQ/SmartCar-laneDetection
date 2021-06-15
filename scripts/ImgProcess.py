@@ -58,6 +58,9 @@ class ImgProcess:
         self.circleFit = CircleFit()
         self.applyConfig()
         self.paraCurve = ParaCurve(self.PI, self.PJ)
+        self.frontForkChecker = FrontForkChecker(self.PERMAT, self.pline)
+        self.sideForkChecker = SideForkChecker(self.pline)
+        self.sideFork = False
 
     def setImg(self, img: np.ndarray) -> None:
         """设置当前需要处理的图像
@@ -100,11 +103,25 @@ class ImgProcess:
         I, J = axisTransform(i, j, self.REPMAT)
         self.SrcShow.point((I, J), color, r)
 
+    def line(self, p1: Tuple[int], p2: Tuple[int], color: Tuple[int] = (0, 0, 255), thickness: int = 2) -> None:
+        (i1, j1), (i2, j2) = p1, p2
+        self.SrcShow.line(p1, p2, color, thickness)
+        pi1, pj1 = axisTransform(i1, j1, self.REPMAT)
+        pi2, pj2 = axisTransform(i2, j2, self.REPMAT)
+        self.PerShow.line((pi1 + I_SHIFT, pj1 + J_SHIFT), (pi2 + I_SHIFT, pj2 + J_SHIFT), color, thickness)
+
+    def pline(self, p1: Tuple[int], p2: Tuple[int], color: Tuple[int] = (0, 0, 255), thickness: int = 2) -> None:
+        (i1, j1), (i2, j2) = p1, p2
+        self.PerShow.line((i1 + I_SHIFT, j1 + J_SHIFT), (i2 + I_SHIFT, j2 + J_SHIFT), color, thickness)
+        pi1, pj1 = axisTransform(i1, j1, self.REPMAT)
+        pi2, pj2 = axisTransform(i2, j2, self.REPMAT)
+        self.SrcShow.line((pi1, pj1), (pi2, pj2), color, thickness)
+
     def resetState(self) -> None:
         "重置状态"
+        self.sideFork = False
         for u in range(2):
             self.fitter[u].reset()
-        self.frontMid = [0] * 5
         self.SrcShow.line((CUT, 0), (CUT, M))
         self.SrcShow.line((FORKUPCUT, 0), (FORKUPCUT, M))
         self.SrcShow.line((N - FORKDOWNCUT, 0), (N - FORKDOWNCUT, M))
@@ -169,10 +186,13 @@ class ImgProcess:
         "获取最远前沿所在的'斜率'K"
         self.SrcShow.point((N - 1, M >> 1), (255, 0, 0), 6)
         self.I = self.K = 0x7FFFFFFF
+        self.frontForkChecker.reset()
         for k in range(-6, 7):
             i = self.searchK(k, draw)
-            if -2 <= k <= 2:
-                self.frontMid[k + 2] = i
+            if self.checkCornerIJ(i - 1, self.calcK(i - 1, k)):
+                self.frontForkChecker.update(i - 1, self.calcK(i - 1, k))
+            else:
+                self.frontForkChecker.lost()
             if i < self.I:
                 self.I, self.K = i, k
         self.SrcShow.point((self.I, self.calcK(self.I, self.K)), (255, 0, 0))
@@ -183,18 +203,23 @@ class ImgProcess:
         for u in range(2):
             self.pointEliminator.reset(u ^ 1, self.fitter[u], COLORS[u + 4])
             self.circleFit.reset()
+            self.sideForkChecker.reset()
             for I in range(N - 1, self.I - 1, -2):
                 J = self.calcK(I, self.K)
                 j = self.searchRow(I, J, u, draw)
                 if self.checkJ(j):
                     self.point((I, j), COLORS[u + 2])
                     pi, pj = axisTransform(I, j, self.PERMAT)
+                    self.sideForkChecker.update(pi, pj)
                     self.pointEliminator.update(pi, pj)
                     self.circleFit.update(pi, pj)
                 else:
+                    self.sideForkChecker.lost()
                     if self.circleFit.lost():
-                        self.PerShow.circle((self.circleFit.X + I_SHIFT, self.circleFit.Y + J_SHIFT), self.circleFit.R)
+                        # self.PerShow.circle((self.circleFit.X + I_SHIFT, self.circleFit.Y + J_SHIFT), self.circleFit.R)
+                        pass
                         # print(self.circleFit.X, self.circleFit.Y, self.circleFit.R)
+            self.sideFork |= self.sideForkChecker.res
 
     def getMid(self, drawEdge: bool = False) -> bool:
         "获取中线"
@@ -252,46 +277,13 @@ class ImgProcess:
         targetYaw = atan2(self.Y1 - self.PJ, self.PI - X0 - self.X1)
         self.PerShow.putText("Yaw:%.5f" % targetYaw, (120, 20))
 
-    def checkFork(self):
-        "通过前沿点检查三岔路口"
-        pi, pj = [0.0] * 5, [0.0] * 5
-
-        def checkForkAngle(i: int):
-            def vectorCos(x1: float, y1: float, x2: float, y2: float):
-                return (x1 * x2 + y1 * y2) / sqrt((x1 * x1 + y1 * y1) * (x2 * x2 + y2 * y2))
-
-            x1 = pi[i + 1] - pi[i + 0]
-            x2 = pi[i + 2] - pi[i + 3]
-            if x1 < 0 or x2 < 0:
-                return False
-            res = vectorCos(x1, pj[i + 0] - pj[i + 1], x2, pj[i + 3] - pj[i + 2])
-            self.PerShow.putText("%.2f" % degrees(acos(res)), (100 + 5 * i, 20))
-            return cos(radians(FORKHIGH)) < res < cos(radians(FORKLOW))
-
-        for k in range(1, 4):
-            if not FORKUPCUT < self.frontMid[k] < N - FORKDOWNCUT:
-                return False
-            pi[k], pj[k] = axisTransform(self.frontMid[k], self.calcK(self.frontMid[k], -2 + k), self.PERMAT)
-            self.ppoint((pi[k], pj[k]))
-        if FORKUPCUT < self.frontMid[0] < N - FORKDOWNCUT:
-            pi[0], pj[0] = axisTransform(self.frontMid[0], self.calcK(self.frontMid[0], -2), self.PERMAT)
-            self.ppoint((pi[0], pj[0]))
-            if checkForkAngle(0):
-                return True
-        if FORKUPCUT < self.frontMid[4] < N - FORKDOWNCUT:
-            pi[4], pj[4] = axisTransform(self.frontMid[4], self.calcK(self.frontMid[4], 2), self.PERMAT)
-            self.ppoint((pi[4], pj[4]))
-            if checkForkAngle(1):
-                return True
-        return False
-
     def work(self):
         "图像处理的完整工作流程"
         self.resetState()
         self.getK(True)
-        self.PerShow.putText("Fork:" + str(self.checkFork()), (110, 20))
         self.getEdge()
-        if self.getMid(True):
+        self.PerShow.putText("Fork:" + str(self.frontForkChecker.res & self.sideFork), (110, 20))
+        if self.getMid():
             self.getTarget()
             self.solve()
 

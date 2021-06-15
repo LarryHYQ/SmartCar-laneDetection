@@ -119,9 +119,6 @@ class ImgProcess:
 
     def resetState(self) -> None:
         "重置状态"
-        self.sideFork = False
-        for u in range(2):
-            self.fitter[u].reset()
         self.SrcShow.line((CUT, 0), (CUT, M))
         self.SrcShow.line((FORKUPCUT, 0), (FORKUPCUT, M))
         self.SrcShow.line((N - FORKDOWNCUT, 0), (N - FORKDOWNCUT, M))
@@ -200,7 +197,9 @@ class ImgProcess:
 
     def getEdge(self, draw: bool = False):
         "逐行获取边界点"
+        self.sideFork = False
         for u in range(2):
+            self.fitter[u].reset()
             self.pointEliminator.reset(u ^ 1, self.fitter[u], COLORS[u + 4])
             self.circleFit.reset()
             self.sideForkChecker.reset()

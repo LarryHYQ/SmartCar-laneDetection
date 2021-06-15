@@ -8,6 +8,7 @@ FORKUPCUT = 5  # 三岔路口前沿点最小有效行
 FORKDOWNCUT = 10  # 三岔路口前沿点最大有效行
 FORKLOW = 110  # 三岔路口最小角度
 FORKHIGH = 140  # 三岔路口最大角度
+FORKMAXDIST2 = 25
 
 # sobel
 LRSTEP = 2

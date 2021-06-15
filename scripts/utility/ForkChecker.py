@@ -52,7 +52,7 @@ class FrontForkChecker:
         if self.res:
             return
         if not FORKUPCUT < i < N - FORKDOWNCUT:
-            self.reset()
+            self.lost()
         else:
             self.pi[self.n & 3], self.pj[self.n & 3] = self.axisTransform(i, j)
             self.n += 1
@@ -81,7 +81,7 @@ class SideForkChecker:
     def checkDist(self, pi_: float, pj_: float) -> bool:
         if not self.n:
             return True
-        return dist2(pi_, pj_, self.pi[(self.n - 1) % 7], self.pj[(self.n - 1) % 7]) < 25
+        return dist2(pi_, pj_, self.pi[(self.n - 1) % 7], self.pj[(self.n - 1) % 7]) < FORKMAXDIST2
 
     def check(self) -> bool:
         if self.n < 7:

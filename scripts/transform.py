@@ -62,6 +62,31 @@ def transfomImg(src: np.ndarray, perMat: np.array, N: int, M: int, N_: int, M_: 
     return per
 
 
+def transfomImgP(src: np.ndarray, perMat: np.array, N: int, M: int, N_: int, M_: int, i_shift: int, j_shift: int) -> np.ndarray:
+    """使用变换矩阵对图像进行逆透视变换并返回变换后的图像
+
+    Args:
+        src (np.ndarray): 原图
+        perMat (np.array): 变换矩阵
+        N (int): 原图的高
+        M (int): 原图的宽
+        N_ (int): 输出图片的高度
+        M_ (int): 输出图片的宽度
+        i_shift (int): 输出向下偏移
+        j_shift (int): 输出向右偏移
+
+    Returns:
+        np.ndarray: 变换后的图像
+    """
+    per = np.zeros((N_, M_), "uint8")
+    for u in range(N_):
+        for v in range(M_):
+            i, j = map(round, axisTransform(u - i_shift, v - j_shift, perMat))
+            if 0 <= i < N and 0 <= j < M:
+                per[u, v] = src[i, j]
+    return per
+
+
 def writeFile(perMat: np.array) -> None:
     """将变换矩阵写入文件
 
@@ -76,48 +101,3 @@ def writeFile(perMat: np.array) -> None:
 
 
 __all__ = ["getPerMat", "axisTransform", "transfomImg", "writeFile"]
-
-if __name__ == "__main__":
-    N = 80  # 原图的高
-    M = 188  # 原图的宽
-
-    # 这几项只用于显示，不参与运算
-    N_ = 200  # 新图的高
-    M_ = 200  # 新图的宽
-    i_shift = 50  # 向下平移
-    j_shift = 20  # 向右平移
-    #
-    index = 62
-
-    DIR = "D:\\CarImg\\"
-    IMGDIR = "2.BMP"  # 图片的路径
-    srcArr = [  # 原图上的四个点
-        (0, 49),  # 左上角
-        (0, 76),  # 右上角
-        (59, 0),  # 左下角
-        (59, 119),  # 右下角
-    ]
-    perArr = [  # 新图上的四个点
-        (0, 49),  # 左上角
-        (0, 76),  # 右上角
-        (120, 49),  # 左下角
-        (120, 76),  # 右下角
-    ]
-
-    perMat = getPerMat(srcArr, perArr)
-    writeFile(perMat)
-    img1 = cv2.imread(DIR + str(index) + ".png", 0)
-    img2 = np.zeros((N_, M_), "uint8")
-    for i in range(N):
-        for j in range(M):
-            u, v = axisTransform(i, j, perMat)
-            u = round(u + i_shift)
-            v = round(v + j_shift)
-            if 0 <= u < N_ and 0 <= v < M_:
-                img2[u, v] = img1[i, j]
-    img1 = cv2.resize(img1, dsize=(0, 0), fx=6, fy=6, interpolation=cv2.INTER_NEAREST)
-    img2 = cv2.resize(img2, dsize=(0, 0), fx=3, fy=3, interpolation=cv2.INTER_NEAREST)
-    cv2.imshow("old", img1)
-    cv2.imshow("new", img2)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()

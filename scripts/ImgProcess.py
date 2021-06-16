@@ -55,7 +55,7 @@ class ImgProcess:
         """
         self.fitter = [Polyfit2d() for u in range(2)]
         self.pointEliminator = PointEliminator(self)
-        self.circleFit = CircleFit()
+        self.circleFit = CircleFit(lambda x, y, r: (self.PerShow.circle((x + I_SHIFT, y + J_SHIFT), r), self.PerShow.point((x + I_SHIFT, y + J_SHIFT))), lambda s, pt: self.PerShow.putText(s, (pt[0] + I_SHIFT, pt[1] + J_SHIFT)))
         self.applyConfig()
         self.paraCurve = ParaCurve(self.PI, self.PJ)
         self.frontForkChecker = FrontForkChecker(self.PERMAT, self.pline)
@@ -124,6 +124,9 @@ class ImgProcess:
         self.SrcShow.line((N - FORKDOWNCUT, 0), (N - FORKDOWNCUT, M))
         self.SrcShow.line((0, CORNERCUT), (N, 0))
         self.SrcShow.line((0, M - CORNERCUT), (N, M))
+
+        self.PerShow.line((N_ - 5, 5), (N_ - 5, 15))
+        self.PerShow.line((N_ - 5, 5), (N_ - 15, 5))
 
     def sobel(self, i: int, j: int, lr: int = LRSTEP) -> int:
         "魔改的sobel算子"
@@ -214,10 +217,9 @@ class ImgProcess:
                     self.circleFit.update(pi, pj)
                 else:
                     self.sideForkChecker.lost()
-                    if self.circleFit.lost():
-                        # self.PerShow.circle((self.circleFit.X + I_SHIFT, self.circleFit.Y + J_SHIFT), self.circleFit.R)
-                        pass
-                        # print(self.circleFit.X, self.circleFit.Y, self.circleFit.R)
+                    self.circleFit.lost()
+            self.circleFit.lost()
+
             self.sideFork |= self.sideForkChecker.res
 
     def getMid(self, drawEdge: bool = False) -> bool:

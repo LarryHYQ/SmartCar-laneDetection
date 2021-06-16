@@ -7,6 +7,10 @@ from math import sqrt
 
 
 class CircleFit:
+    def __init__(self, circle, text):
+        self.circle = circle
+        self.text = text
+
     def reset(self) -> None:
         self.n = 0
         self.x = self.y = self.x2 = self.y2 = self.x3 = self.y3 = self.xy = self.xy2 = self.x2y = 0.0
@@ -21,7 +25,7 @@ class CircleFit:
 
     def update(self, x_: float, y_: float) -> None:
         if not self.checkPre(x_, y_):
-            self.reset()
+            self.lost()
             return
         self.preX = x_
         self.preY = y_
@@ -53,12 +57,18 @@ class CircleFit:
         self.R = sqrt(a * a + b * b - 4 * c) / 2
 
     def lost(self) -> bool:
-        if self.n < 10:
+        if self.n < 5:
             if self.n:
                 self.reset()
             return False
         self.fit()
-        return self.R < 40
+        if 18 < self.R < 100:
+            self.circle(self.X, self.Y, self.R)
+            self.text("(%.1f, %.1f)" % (self.X, self.Y), (self.X, self.Y))
+            self.text("%.1f" % self.R, (self.X + 10, self.Y))
+
+        self.reset()
+        return True
 
 
 __all__ = ["CircleFit"]

@@ -29,6 +29,15 @@ DIST = 37  # 垂足向上扩展的长度
 
 X0 = 17.0
 
+# 起跑线检测
+STARTLINE_I1 = 40
+STARTLINE_I2 = 60
+STARTLINE_PADDING = 30
+STARTLINE_COUNT = 25
+
+# 坡道
+HILL_MINWIDTH = 10
+HILLCUT = 30
 
 # 逆透视变换
 SRCARR = [  # 原图上的四个点

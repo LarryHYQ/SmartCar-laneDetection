@@ -54,13 +54,14 @@ class ImgProcess:
             Config (dict): 通过 getConfig() 获取的配置
         """
         self.fitter = [Polyfit2d() for u in range(2)]
-        self.pointEliminator = PointEliminator(self)
-        self.circleFit = CircleFit(lambda x, y, r: (self.PerShow.circle((x + I_SHIFT, y + J_SHIFT), r), self.PerShow.point((x + I_SHIFT, y + J_SHIFT))), lambda s, pt: self.PerShow.putText(s, (pt[0] + I_SHIFT, pt[1] + J_SHIFT)))
+        self.pointEliminator = [PointEliminator(self) for u in range(2)]
+        self.circleFit = [CircleFit(lambda x, y, r: (self.PerShow.circle((x + I_SHIFT, y + J_SHIFT), r), self.PerShow.point((x + I_SHIFT, y + J_SHIFT))), lambda s, pt: self.PerShow.putText(s, (pt[0] + I_SHIFT, pt[1] + J_SHIFT))) for u in range(2)]
         self.applyConfig()
         self.paraCurve = ParaCurve(self.PI, self.PJ)
         self.frontForkChecker = FrontForkChecker(self.PERMAT, self.pline)
-        self.sideForkChecker = SideForkChecker(self.pline)
+        self.sideForkChecker = [SideForkChecker(self.pline) for u in range(2)]
         self.sideFork = False
+        self.hillChecker = HillChecker()
 
     def setImg(self, img: np.ndarray) -> None:
         """设置当前需要处理的图像
@@ -106,8 +107,8 @@ class ImgProcess:
     def line(self, p1: Tuple[int], p2: Tuple[int], color: Tuple[int] = (0, 0, 255), thickness: int = 2) -> None:
         (i1, j1), (i2, j2) = p1, p2
         self.SrcShow.line(p1, p2, color, thickness)
-        pi1, pj1 = axisTransform(i1, j1, self.REPMAT)
-        pi2, pj2 = axisTransform(i2, j2, self.REPMAT)
+        pi1, pj1 = axisTransform(i1, j1, self.PERMAT)
+        pi2, pj2 = axisTransform(i2, j2, self.PERMAT)
         self.PerShow.line((pi1 + I_SHIFT, pj1 + J_SHIFT), (pi2 + I_SHIFT, pj2 + J_SHIFT), color, thickness)
 
     def pline(self, p1: Tuple[int], p2: Tuple[int], color: Tuple[int] = (0, 0, 255), thickness: int = 2) -> None:
@@ -119,14 +120,23 @@ class ImgProcess:
 
     def resetState(self) -> None:
         "重置状态"
-        self.SrcShow.line((CUT, 0), (CUT, M))
-        self.SrcShow.line((FORKUPCUT, 0), (FORKUPCUT, M))
-        self.SrcShow.line((N - FORKDOWNCUT, 0), (N - FORKDOWNCUT, M))
-        self.SrcShow.line((0, CORNERCUT), (N, 0))
-        self.SrcShow.line((0, M - CORNERCUT), (N, M))
-
+        # 新图上的标尺
         self.PerShow.line((N_ - 5, 5), (N_ - 5, 15))
         self.PerShow.line((N_ - 5, 5), (N_ - 15, 5))
+
+        # 前沿线范围
+        # self.SrcShow.line((CUT, 0), (CUT, M))
+        # self.SrcShow.line((FORKUPCUT, 0), (FORKUPCUT, M))
+        # self.SrcShow.line((N - FORKDOWNCUT, 0), (N - FORKDOWNCUT, M))
+        # self.SrcShow.line((0, CORNERCUT), (N, 0))
+        # self.SrcShow.line((0, M - CORNERCUT), (N, M))
+
+        # 起跑线检测
+        # self.line((STARTLINE_I1, STARTLINE_PADDING), (STARTLINE_I1, M - STARTLINE_PADDING), (255, 0, 0))
+        # self.line((STARTLINE_I2, STARTLINE_PADDING), (STARTLINE_I2, M - STARTLINE_PADDING), (255, 0, 0))
+
+        # 坡道有效线
+        # self.line((N - HILLCUT, 0), (N - HILLCUT, M))
 
     def sobel(self, i: int, j: int, lr: int = LRSTEP) -> int:
         "魔改的sobel算子"
@@ -201,26 +211,34 @@ class ImgProcess:
     def getEdge(self, draw: bool = False):
         "逐行获取边界点"
         self.sideFork = False
+        self.hillChecker.reset()
         for u in range(2):
             self.fitter[u].reset()
-            self.pointEliminator.reset(u ^ 1, self.fitter[u], COLORS[u + 4])
-            self.circleFit.reset()
-            self.sideForkChecker.reset()
-            for I in range(N - 1, self.I - 1, -2):
-                J = self.calcK(I, self.K)
-                j = self.searchRow(I, J, u, draw)
-                if self.checkJ(j):
-                    self.point((I, j), COLORS[u + 2])
-                    pi, pj = axisTransform(I, j, self.PERMAT)
-                    self.sideForkChecker.update(pi, pj)
-                    self.pointEliminator.update(pi, pj)
-                    self.circleFit.update(pi, pj)
-                else:
-                    self.sideForkChecker.lost()
-                    self.circleFit.lost()
-            self.circleFit.lost()
+            self.pointEliminator[u].reset(u ^ 1, self.fitter[u], COLORS[u + 4])
+            self.sideForkChecker[u].reset()
 
-            self.sideFork |= self.sideForkChecker.res
+        for I in range(N - 1, self.I - 1, -2):
+            J = self.calcK(I, self.K)
+            side = [self.searchRow(I, J, u, draw) for u in range(2)]
+            pj = [0.0] * 2
+            nolost = True
+            for u in range(2):
+                if self.checkJ(side[u]):
+                    self.point((I, side[u]), COLORS[u + 2])
+                    pi, pj[u] = axisTransform(I, side[u], self.PERMAT)
+                    self.sideForkChecker[u].update(pi, pj[u])
+                    self.pointEliminator[u].update(pi, pj[u])
+                else:
+                    nolost = False
+                    self.sideForkChecker[u].lost()
+
+            if nolost:
+                width = pj[1] - pj[0]
+                self.PerShow.point((pi + I_SHIFT, width + J_SHIFT))
+                if I < N - HILLCUT and I & 2:
+                    self.hillChecker.update(width)
+
+            self.sideFork |= self.sideForkChecker[u].res
 
     def getMid(self, drawEdge: bool = False) -> bool:
         "获取中线"
@@ -278,11 +296,31 @@ class ImgProcess:
         targetYaw = atan2(self.Y1 - self.PJ, self.PI - X0 - self.X1)
         self.PerShow.putText("Yaw:%.5f" % targetYaw, (120, 20))
 
+    def checkStartLine(self, i: int) -> bool:
+        "检测及起跑线"
+        pre = self.sobel(i, STARTLINE_PADDING, 1) > THRESHLOD
+        count = 0
+        for j in range(STARTLINE_PADDING + 1, M - STARTLINE_PADDING):
+            cur = self.sobel(i, j, 1) > THRESHLOD
+            count += pre ^ cur
+            pre = cur
+        return count > STARTLINE_COUNT
+
     def work(self):
         "图像处理的完整工作流程"
         self.resetState()
-        self.getK(True)
+        if self.checkStartLine(STARTLINE_I1) or self.checkStartLine(STARTLINE_I2):
+            self.PerShow.putText("StartLine:True", (90, 20))
+            return
+        self.PerShow.putText("StartLine:False", (90, 20))
+
+        self.getK()
         self.getEdge()
+        if self.hillChecker.isHill():
+            self.PerShow.putText("Hill:True", (100, 20))
+            return
+        self.PerShow.putText("Hill:False", (100, 20))
+
         self.PerShow.putText("Fork:" + str(self.frontForkChecker.res & self.sideFork), (110, 20))
         if self.getMid():
             self.getTarget()

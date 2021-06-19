@@ -61,10 +61,9 @@ class ImgProcess:
         self.frontForkChecker = FrontForkChecker(self.PERMAT, self.pline)
         self.sideForkChecker = [SideForkChecker(self.pline) for u in range(2)]
         self.sideFork = False
-        self.hillChecker = HillChecker()
         self.roundaboutChecker = RoundaboutChecker()
 
-        self.landmark = {"StartLine": False, "Hill": False, "Roundabout1": False, "Fork": False}
+        self.landmark = {"StartLine": False, "Hill": False, "Roundabout1": False, "Fork": False, "Yaw": 0.0}
 
     def setImg(self, img: np.ndarray) -> None:
         """设置当前需要处理的图像
@@ -219,7 +218,6 @@ class ImgProcess:
     def getEdge(self, draw: bool = False):
         "逐行获取边界点"
         self.sideFork = False
-        self.hillChecker.reset()
         self.roundaboutChecker.reset()
         for u in range(2):
             self.fitter[u].reset()
@@ -244,8 +242,6 @@ class ImgProcess:
             if nolost:
                 width = pj[1] - pj[0]
                 self.PerShow.point((pi + I_SHIFT, width + J_SHIFT))
-                if I < N - HILLCUT and I & 2:
-                    self.hillChecker.update(width)
                 self.roundaboutChecker.update(width, pi, side[0], -side[1])
             else:
                 self.roundaboutChecker.lost()
@@ -305,8 +301,7 @@ class ImgProcess:
         "获取目标偏航角"
         self.PerShow.point((self.PI - X0 + I_SHIFT, self.PJ + J_SHIFT), (255, 0, 0), 6)
         self.PerShow.line((self.PI - X0 + I_SHIFT, self.PJ + J_SHIFT), (self.X1 + I_SHIFT, self.Y1 + J_SHIFT))
-        targetYaw = atan2(self.Y1 - self.PJ, self.PI - X0 - self.X1)
-        self.PerShow.putText("Yaw:%.5f" % targetYaw, (120, 180))
+        self.landmark["Yaw"] = atan2(self.Y1 - self.PJ, self.PI - X0 - self.X1)
 
     def checkStartLine(self, i: int) -> bool:
         "检测及起跑线"
@@ -320,7 +315,7 @@ class ImgProcess:
 
     def showRes(self):
         for i, (k, v) in enumerate(self.landmark.items()):
-            self.PerShow.putText(k + ": " + str(v), (i * 5 + 100, 180))
+            self.PerShow.putText(k + ": " + str(v), (i * 5 + 100, 170))
 
     def work(self):
         "图像处理的完整工作流程"
@@ -328,8 +323,7 @@ class ImgProcess:
         self.landmark["StartLine"] = self.checkStartLine(STARTLINE_I1) or self.checkStartLine(STARTLINE_I2)
         self.getK()
         self.getEdge()
-        self.landmark["Hill"] = self.hillChecker.isHill()
-        self.landmark["Roundabout1"] = self.roundaboutChecker.check()
+        self.landmark["Roundabout1"] = "None" if not self.roundaboutChecker.check() else "Right" if self.roundaboutChecker.side else "Left"
         self.landmark["Fork"] = self.frontForkChecker.res & self.sideFork
         if self.getMid():
             self.getTarget()

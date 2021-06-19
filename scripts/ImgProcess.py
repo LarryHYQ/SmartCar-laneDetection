@@ -61,7 +61,6 @@ class ImgProcess:
         self.hillChecker = [HillChecker() for u in range(2)]
         self.frontForkChecker = FrontForkChecker(self.PERMAT, self.pline)
         self.sideForkChecker = [SideForkChecker(self.pline) for u in range(2)]
-        self.sideFork = False
         self.roundaboutChecker = RoundaboutChecker()
 
         self.landmark = {"StartLine": False, "Hill": False, "Roundabout1": False, "Fork": False, "Yaw": 0.0}
@@ -144,7 +143,7 @@ class ImgProcess:
         # self.line((N - HILLCUT, 0), (N - HILLCUT, M))
 
         # 环岛
-        self.PerShow.line((0, ROUND_MAXWIDTH), (N_, ROUND_MAXWIDTH))
+        # self.PerShow.line((0, ROUND_MAXWIDTH), (N_, ROUND_MAXWIDTH))
 
     def sobel(self, i: int, j: int, lr: int = LRSTEP) -> int:
         "魔改的sobel算子"
@@ -218,7 +217,6 @@ class ImgProcess:
 
     def getEdge(self, draw: bool = False):
         "逐行获取边界点"
-        self.sideFork = False
         self.roundaboutChecker.reset()
         for u in range(2):
             self.fitter[u].reset()
@@ -249,8 +247,6 @@ class ImgProcess:
                 self.roundaboutChecker.update(width, pi, side[0], -side[1])
             else:
                 self.roundaboutChecker.lost()
-
-            self.sideFork |= self.sideForkChecker[u].res
 
     def getMid(self, drawEdge: bool = False) -> bool:
         "获取中线"
@@ -308,7 +304,7 @@ class ImgProcess:
         self.landmark["Yaw"] = atan2(self.Y1 - self.PJ, self.PI - X0 - self.X1)
 
     def checkStartLine(self, i: int) -> bool:
-        "检测及起跑线"
+        "检测起跑线"
         pre = self.sobel(i, STARTLINE_PADDING, 1) > THRESHLOD
         count = 0
         for j in range(STARTLINE_PADDING + 1, M - STARTLINE_PADDING):
@@ -317,7 +313,49 @@ class ImgProcess:
             pre = cur
         return count > STARTLINE_COUNT
 
+    def roundaboutGetMid(self, U=0):
+        "入环岛获取中线"
+
+        count = 0
+        for i in range(self.I + 1, N, 2):
+            m = self.calcK(i, self.K)
+            side = [self.searchRow(i, m, u) for u in range(2)]
+            if self.checkJ(side[U]):
+                pi, pj_ = axisTransform(i, side[U ^ 1], self.PERMAT)
+                pi, pj = axisTransform(i, side[U], self.PERMAT)
+                if -ROUND_MAXWIDTH < pj - pj_ < ROUND_MAXWIDTH:
+                    count += 1
+                    if count >= 3:
+                        upi, upj = pi, pj
+                    continue
+            if count >= 3:
+                break
+            count = 0
+        if not count >= 3:
+            return
+
+        self.fitter[U ^ 1].reset()
+        self.fitter[U ^ 1].update(upi, upj), self.fitter[U ^ 1].update(upi, upj + 8), self.fitter[U ^ 1].update(upi, upj - 8)
+
+        dpi, dpj = axisTransform(N - 1, self.searchRow(N - 1, M >> 1, U ^ 1), self.PERMAT)
+        self.ppoint((upi, upj)), self.ppoint((dpi, dpj))
+        self.fitter[U ^ 1].update(dpi, dpj), self.fitter[U ^ 1].update(dpi + 12, dpj), self.fitter[U ^ 1].update(dpi - 12, dpj)
+
+        self.fitter[U ^ 1].fit()
+
+        px = list(range(-I_SHIFT, N_ - I_SHIFT))
+        py = [self.fitter[U ^ 1].val(v) for v in px]
+        self.PerShow.polylines(px, py, COLORS[U + 2], i_shift=I_SHIFT, j_shift=J_SHIFT)
+
+        self.fitter[U ^ 1].shift(X_POS, WIDTH, U ^ 1)
+        self.paraCurve.set(*self.fitter[U ^ 1].res)
+
+        px = list(range(-I_SHIFT, N_ - I_SHIFT))
+        py = [self.paraCurve.val(v) for v in px]
+        self.PerShow.polylines(px, py, COLORS[U], i_shift=I_SHIFT, j_shift=J_SHIFT)
+
     def showRes(self):
+        "显示结果"
         for i, (k, v) in enumerate(self.landmark.items()):
             self.PerShow.putText(k + ": " + str(v), (i * 5 + 100, 170))
 
@@ -326,14 +364,21 @@ class ImgProcess:
         self.resetState()
         self.landmark["StartLine"] = self.checkStartLine(STARTLINE_I1) or self.checkStartLine(STARTLINE_I2)
         self.getK()
-        self.getEdge()
-        self.landmark["Hill"] = self.hillChecker[0].check() and self.hillChecker[1].check() and self.hillChecker[0].calc() + self.hillChecker[1].calc() > HILL_DIFF
-        self.landmark["Roundabout1"] = "None" if not self.roundaboutChecker.check() else "Right" if self.roundaboutChecker.side else "Left"
-        self.landmark["Fork"] = self.frontForkChecker.res & self.sideFork
-        if self.getMid():
-            self.getTarget()
-            self.solve()
-        self.showRes()
+
+        "入环"
+        self.roundaboutGetMid(1)
+        self.getTarget()
+        self.solve()
+
+        "正常"
+        # self.getEdge()
+        # self.landmark["Hill"] = self.hillChecker[0].check() and self.hillChecker[1].check() and self.hillChecker[0].calc() + self.hillChecker[1].calc() > HILL_DIFF
+        # self.landmark["Roundabout1"] = "None" if not self.roundaboutChecker.check() else "Right" if self.roundaboutChecker.side else "Left"
+        # self.landmark["Fork"] = self.frontForkChecker.res and (self.sideForkChecker[0].res or self.sideForkChecker[1].res)
+        # if self.getMid():
+        #     self.getTarget()
+        #     self.solve()
+        # self.showRes()
 
 
 __all__ = ["ImgProcess"]

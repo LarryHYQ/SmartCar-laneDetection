@@ -17,7 +17,7 @@ class HillChecker:
         self.n += 1
         if self.n == 1:
             self.first = self.last = pj
-        if self.n % 4 == 0:
+        if not self.n & 3:
             if pj > self.last:
                 self.isNot = True
             else:

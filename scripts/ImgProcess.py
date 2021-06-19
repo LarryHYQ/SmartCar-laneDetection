@@ -62,6 +62,9 @@ class ImgProcess:
         self.sideForkChecker = [SideForkChecker(self.pline) for u in range(2)]
         self.sideFork = False
         self.hillChecker = HillChecker()
+        self.roundaboutChecker = RoundaboutChecker()
+
+        self.landmark = {"StartLine": False, "Hill": False, "Roundabout1": False, "Fork": False}
 
     def setImg(self, img: np.ndarray) -> None:
         """设置当前需要处理的图像
@@ -120,7 +123,9 @@ class ImgProcess:
 
     def resetState(self) -> None:
         "重置状态"
-        # 新图上的标尺
+        # 标尺
+        self.SrcShow.line((N - 5, 5), (N - 5, 15))
+        self.SrcShow.line((N - 5, 5), (N - 15, 5))
         self.PerShow.line((N_ - 5, 5), (N_ - 5, 15))
         self.PerShow.line((N_ - 5, 5), (N_ - 15, 5))
 
@@ -137,6 +142,9 @@ class ImgProcess:
 
         # 坡道有效线
         # self.line((N - HILLCUT, 0), (N - HILLCUT, M))
+
+        # 环岛
+        self.PerShow.line((0, ROUND_MAXWIDTH), (N_, ROUND_MAXWIDTH))
 
     def sobel(self, i: int, j: int, lr: int = LRSTEP) -> int:
         "魔改的sobel算子"
@@ -212,6 +220,7 @@ class ImgProcess:
         "逐行获取边界点"
         self.sideFork = False
         self.hillChecker.reset()
+        self.roundaboutChecker.reset()
         for u in range(2):
             self.fitter[u].reset()
             self.pointEliminator[u].reset(u ^ 1, self.fitter[u], COLORS[u + 4])
@@ -237,6 +246,9 @@ class ImgProcess:
                 self.PerShow.point((pi + I_SHIFT, width + J_SHIFT))
                 if I < N - HILLCUT and I & 2:
                     self.hillChecker.update(width)
+                self.roundaboutChecker.update(width, pi, side[0], -side[1])
+            else:
+                self.roundaboutChecker.lost()
 
             self.sideFork |= self.sideForkChecker[u].res
 
@@ -294,7 +306,7 @@ class ImgProcess:
         self.PerShow.point((self.PI - X0 + I_SHIFT, self.PJ + J_SHIFT), (255, 0, 0), 6)
         self.PerShow.line((self.PI - X0 + I_SHIFT, self.PJ + J_SHIFT), (self.X1 + I_SHIFT, self.Y1 + J_SHIFT))
         targetYaw = atan2(self.Y1 - self.PJ, self.PI - X0 - self.X1)
-        self.PerShow.putText("Yaw:%.5f" % targetYaw, (120, 20))
+        self.PerShow.putText("Yaw:%.5f" % targetYaw, (120, 180))
 
     def checkStartLine(self, i: int) -> bool:
         "检测及起跑线"
@@ -306,25 +318,23 @@ class ImgProcess:
             pre = cur
         return count > STARTLINE_COUNT
 
+    def showRes(self):
+        for i, (k, v) in enumerate(self.landmark.items()):
+            self.PerShow.putText(k + ": " + str(v), (i * 5 + 100, 180))
+
     def work(self):
         "图像处理的完整工作流程"
         self.resetState()
-        if self.checkStartLine(STARTLINE_I1) or self.checkStartLine(STARTLINE_I2):
-            self.PerShow.putText("StartLine:True", (90, 20))
-            return
-        self.PerShow.putText("StartLine:False", (90, 20))
-
+        self.landmark["StartLine"] = self.checkStartLine(STARTLINE_I1) or self.checkStartLine(STARTLINE_I2)
         self.getK()
         self.getEdge()
-        if self.hillChecker.isHill():
-            self.PerShow.putText("Hill:True", (100, 20))
-            return
-        self.PerShow.putText("Hill:False", (100, 20))
-
-        self.PerShow.putText("Fork:" + str(self.frontForkChecker.res & self.sideFork), (110, 20))
+        self.landmark["Hill"] = self.hillChecker.isHill()
+        self.landmark["Roundabout1"] = self.roundaboutChecker.check()
+        self.landmark["Fork"] = self.frontForkChecker.res & self.sideFork
         if self.getMid():
             self.getTarget()
             self.solve()
+        self.showRes()
 
 
 __all__ = ["ImgProcess"]

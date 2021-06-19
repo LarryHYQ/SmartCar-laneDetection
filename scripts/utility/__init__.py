@@ -4,3 +4,4 @@ from .ParaCurve import *
 from .CircleFit import *
 from .ForkChecker import *
 from .HillChecker import *
+from .RoundaboutChecker import *

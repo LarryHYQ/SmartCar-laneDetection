@@ -58,6 +58,7 @@ class ImgProcess:
         self.circleFit = [CircleFit(lambda x, y, r: (self.PerShow.circle((x + I_SHIFT, y + J_SHIFT), r), self.PerShow.point((x + I_SHIFT, y + J_SHIFT))), lambda s, pt: self.PerShow.putText(s, (pt[0] + I_SHIFT, pt[1] + J_SHIFT))) for u in range(2)]
         self.applyConfig()
         self.paraCurve = ParaCurve(self.PI, self.PJ)
+        self.hillChecker = [HillChecker() for u in range(2)]
         self.frontForkChecker = FrontForkChecker(self.PERMAT, self.pline)
         self.sideForkChecker = [SideForkChecker(self.pline) for u in range(2)]
         self.sideFork = False
@@ -221,6 +222,7 @@ class ImgProcess:
         self.roundaboutChecker.reset()
         for u in range(2):
             self.fitter[u].reset()
+            self.hillChecker[u].reset()
             self.pointEliminator[u].reset(u ^ 1, self.fitter[u], COLORS[u + 4])
             self.sideForkChecker[u].reset()
 
@@ -235,6 +237,8 @@ class ImgProcess:
                     pi, pj[u] = axisTransform(I, side[u], self.PERMAT)
                     self.sideForkChecker[u].update(pi, pj[u])
                     self.pointEliminator[u].update(pi, pj[u])
+                    if I < HILL_CUT:
+                        self.hillChecker[u].update(-pj[u] if u else pj[u])
                 else:
                     nolost = False
                     self.sideForkChecker[u].lost()
@@ -323,6 +327,7 @@ class ImgProcess:
         self.landmark["StartLine"] = self.checkStartLine(STARTLINE_I1) or self.checkStartLine(STARTLINE_I2)
         self.getK()
         self.getEdge()
+        self.landmark["Hill"] = self.hillChecker[0].check() and self.hillChecker[1].check() and self.hillChecker[0].calc() + self.hillChecker[1].calc() > HILL_DIFF
         self.landmark["Roundabout1"] = "None" if not self.roundaboutChecker.check() else "Right" if self.roundaboutChecker.side else "Left"
         self.landmark["Fork"] = self.frontForkChecker.res & self.sideFork
         if self.getMid():

@@ -111,11 +111,8 @@ class RoundaboutChecker:
             self.count += 1
 
     def checkCircle(self) -> bool:
-        l = self.leftCheck.check()
-        r = self.rightCheck.check()
-        if l ^ r:
-            self.side = int(r)
-        return l ^ r
+        self.side = self.rightCheck.check()
+        return self.leftCheck.check() ^ self.side
 
     def check(self) -> int:
         return self.flag == 3 and self.count >= ROUND_COUNT3

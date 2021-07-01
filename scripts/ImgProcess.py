@@ -62,6 +62,7 @@ class ImgProcess:
         self.frontForkChecker = FrontForkChecker(self.PERMAT, self.pline)
         self.sideForkChecker = [SideForkChecker(self.pline) for u in range(2)]
         self.roundaboutChecker = RoundaboutChecker()
+        self.roundaboutEntering = RoundaboutEntering()
 
         self.landmark = {"StartLine": False, "Hill": False, "Roundabout1": False, "Fork": False, "Yaw": 0.0}
 
@@ -313,32 +314,31 @@ class ImgProcess:
             pre = cur
         return count > STARTLINE_COUNT
 
-    def roundaboutGetMid(self, U=0):
-        "入环岛获取中线"
+    def roundaboutGetEdge(self, U: bool = False) -> bool:
+        "入环岛获取上角点"
+        self.roundaboutEntering.reset()
 
-        count = 0
         for i in range(self.I + 1, N, 2):
             m = self.calcK(i, self.K)
             side = [self.searchRow(i, m, u) for u in range(2)]
+            [self.point((i, side[u]), COLORS[u + 2]) for u in range(2) if self.checkJ(side[u])]
             if self.checkJ(side[U]):
                 pi, pj_ = axisTransform(i, side[U ^ 1], self.PERMAT)
                 pi, pj = axisTransform(i, side[U], self.PERMAT)
-                if -ROUND_MAXWIDTH < pj - pj_ < ROUND_MAXWIDTH:
-                    count += 1
-                    if count >= 3:
-                        upi, upj = pi, pj
-                    continue
-            if count >= 3:
-                break
-            count = 0
-        if not count >= 3:
-            return
+                self.roundaboutEntering.update(pi, pj, pj_)
+            else:
+                self.roundaboutEntering.lost()
+            if self.roundaboutEntering.check():
+                return True
+        return False
 
+    def roundaboutGetMid(self, U: bool = False):
+        "入环岛获取中线"
         self.fitter[U ^ 1].reset()
-        self.fitter[U ^ 1].update(upi, upj), self.fitter[U ^ 1].update(upi, upj + 8), self.fitter[U ^ 1].update(upi, upj - 8)
+        self.fitter[U ^ 1].update(self.roundaboutEntering.i, self.roundaboutEntering.j), self.fitter[U ^ 1].update(self.roundaboutEntering.i, self.roundaboutEntering.j + 8), self.fitter[U ^ 1].update(self.roundaboutEntering.i, self.roundaboutEntering.j - 8)
 
         dpi, dpj = axisTransform(N - 1, self.searchRow(N - 1, M >> 1, U ^ 1), self.PERMAT)
-        self.ppoint((upi, upj)), self.ppoint((dpi, dpj))
+        self.ppoint((self.roundaboutEntering.i, self.roundaboutEntering.j)), self.ppoint((dpi, dpj))
         self.fitter[U ^ 1].update(dpi, dpj), self.fitter[U ^ 1].update(dpi + 12, dpj), self.fitter[U ^ 1].update(dpi - 12, dpj)
 
         self.fitter[U ^ 1].fit()
@@ -366,7 +366,8 @@ class ImgProcess:
         self.getK()
 
         "入环"
-        self.roundaboutGetMid(1)
+        if self.roundaboutGetEdge(0):
+            self.roundaboutGetMid(0)
         self.getTarget()
         self.solve()
 

@@ -5,3 +5,4 @@ from .CircleFit import *
 from .ForkChecker import *
 from .RoundaboutChecker import *
 from .HillChecker import *
+from .RoundaboutEntering import *

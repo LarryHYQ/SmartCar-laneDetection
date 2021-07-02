@@ -87,7 +87,7 @@ class ImgProcess:
         self.PERMAT = getPerMat(SRCARR, PERARR)  # 逆透视变换矩阵
         self.REPMAT = getPerMat(PERARR, SRCARR)  # 反向逆透视变换矩阵
 
-        self.SI, self.SJ = N + 1, M >> 1
+        self.SI, self.SJ = N - 1, M >> 1
         self.PI, self.PJ = axisTransform(self.SI, self.SJ, self.PERMAT)
         self.PI = PI
         print(f"PI {self.PI}\nPJ {self.PJ}")
@@ -251,7 +251,7 @@ class ImgProcess:
 
     def getMid(self, drawEdge: bool = False) -> bool:
         "获取中线"
-        self.PerShow.point((self.PI + I_SHIFT, self.PJ + J_SHIFT), r=6)
+
         px = list(range(-I_SHIFT, N_ - I_SHIFT))
 
         for u in range(2):
@@ -366,20 +366,23 @@ class ImgProcess:
         self.getK()
 
         "入环"
-        if self.roundaboutGetEdge(0):
-            self.roundaboutGetMid(0)
-        self.getTarget()
-        self.solve()
-
-        "正常"
-        # self.getEdge()
-        # self.landmark["Hill"] = self.hillChecker[0].check() and self.hillChecker[1].check() and self.hillChecker[0].calc() + self.hillChecker[1].calc() > HILL_DIFF
-        # self.landmark["Roundabout1"] = "None" if not self.roundaboutChecker.check() else "Right" if self.roundaboutChecker.side else "Left"
-        # self.landmark["Fork"] = self.frontForkChecker.res and (self.sideForkChecker[0].res or self.sideForkChecker[1].res)
-        # if self.getMid():
+        # isRight = False
+        # if self.roundaboutGetEdge(isRight):
+        #     self.roundaboutGetMid(isRight)
         #     self.getTarget()
         #     self.solve()
-        # self.showRes()
+
+        "正常"
+        self.getEdge()
+        self.landmark["Hill"] = self.hillChecker[0].check() and self.hillChecker[1].check() and self.hillChecker[0].calc() + self.hillChecker[1].calc() > HILL_DIFF
+        self.landmark["Roundabout1"] = "None" if not self.roundaboutChecker.check() else "Right" if self.roundaboutChecker.side else "Left"
+        self.landmark["Fork"] = self.frontForkChecker.res and (self.sideForkChecker[0].res or self.sideForkChecker[1].res)
+        if self.getMid(True):
+            self.getTarget()
+            self.solve()
+
+        self.PerShow.point((self.PI + I_SHIFT, self.PJ + J_SHIFT), r=6)
+        self.showRes()
 
 
 __all__ = ["ImgProcess"]

@@ -45,6 +45,14 @@ class Polyfit2d:
         C = self.y - self.x2 * A - self.x * B
         self.res = [A, B, C]
 
+    def twoPoints(self, x0, y0, x1, y1):
+        "以(x0,y0)为极值点，获取过(x1,y1)的抛物线"
+        dx = x1 - x0
+        A = (y1 - y0) / (dx * dx)
+        B = x0 * (-2) * A
+        C = y0 - A * x0 * x0 - B * x0
+        self.res = [A, B, C]
+
     def shift(self, X_POS: int, WIDTH: float, direction: bool) -> None:
         """将拟合得到的抛物线延x0处的切线的垂线平移一段距离
 

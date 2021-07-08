@@ -88,7 +88,7 @@ class RoundaboutChecker:
             return self.lost()
 
         if self.flag == 0:
-            if self.count > ROUND_COUNT0:
+            if self.count >= ROUND_COUNT0:
                 self.flag = 1
                 self.count = 1
                 self.leftCheck.reset()

@@ -21,16 +21,16 @@ K_HIGH = 1.5  # 斜率上限
 
 # 拟合曲线
 X_POS = 102  # 平移点的x位置
-WIDTH = 18.2  # 赛道宽度
+WIDTH = 18  # 赛道宽度
 
 # 获取目标点
 PI = 144.0
 DIST = 37  # 垂足向上扩展的长度
 
-X0 = 17.0
+X0 = 27.0
 
 # 起跑线检测
-STARTLINE_I1 = 40
+STARTLINE_I1 = 30
 STARTLINE_I2 = 60
 STARTLINE_PADDING = 30
 STARTLINE_COUNT = 25
@@ -41,16 +41,16 @@ HILL_CUT = 30
 HILL_COUNT = 10
 
 # 环岛
-ROUND_MAXWIDTH = 50
-ROUND_COUNT0 = 6
-ROUND_DIST2 = 16
-ROUND_COUNT3 = 3
+ROUND_MAXWIDTH = 50  # 最大有效宽度，大于这个宽度视为丢线
+ROUND_COUNT0 = 3  # 最开始至少丢的行数，设成0就可以不丢
+ROUND_DIST2 = 16  # 圆形结束后最丢线的最小距离
+ROUND_COUNT3 = 3  # 再次搜到线的最小行数
 
-ROUND_UPCOUNT = 12
-ROUND_DOWNCOUNT = 3
+ROUND_UPCOUNT = 12  # 原图上圆环边先变小的最小个数
+ROUND_DOWNCOUNT = 3  # 原图上圆环边变小后变大的最小个数
 
-ROUNDENTER_GETCOUNT = 3
-ROUNDENTER_LOSTCOUNT = 3
+ROUNDENTER_GETCOUNT = 3  # 入环时从上往下搜的最少有效点
+ROUNDENTER_LOSTCOUNT = 3  # 搜到有效点后再至少丢的行数
 
 
 # 逆透视变换
@@ -61,10 +61,10 @@ SRCARR = [  # 原图上的四个点
     (78, 187),  # 右下角
 ]
 PERARR = [  # 新图上的四个点
-    (3, -20),  # 左上角
-    (6, 240),  # 右上角
-    (130, 112),  # 左下角
-    (129, 150),  # 右下角
+    (4, -10),  # 左上角
+    (4, 245),  # 右上角
+    (125, 100),  # 左下角
+    (125, 140),  # 右下角
 ]
 
 # 可视化

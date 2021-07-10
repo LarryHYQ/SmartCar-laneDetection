@@ -121,33 +121,6 @@ class ImgProcess:
         pi2, pj2 = axisTransform(i2, j2, self.REPMAT)
         self.SrcShow.line((pi1, pj1), (pi2, pj2), color, thickness)
 
-    def drawLines(self) -> None:
-        "画参考线"
-        # 最上面的舍弃行
-        self.SrcShow.line((CUT, 0), (CUT, M))
-
-        # 标尺
-        self.SrcShow.line((N - 5, 5), (N - 5, 15))
-        self.SrcShow.line((N - 5, 5), (N - 15, 5))
-        self.PerShow.line((N_ - 5, 5), (N_ - 5, 15))
-        self.PerShow.line((N_ - 5, 5), (N_ - 15, 5))
-
-        # 平移参照行X_POS
-        # self.PerShow.line((X_POS + I_SHIFT, 0), (X_POS + I_SHIFT, M_))
-
-        # 前沿线范围
-        # self.SrcShow.line((0, CORNERCUT), (N, 0))
-        # self.SrcShow.line((0, M - CORNERCUT), (N, M))
-        # self.SrcShow.line((FORKUPCUT, 0), (FORKUPCUT, M))
-        # self.SrcShow.line((N - FORKDOWNCUT, 0), (N - FORKDOWNCUT, M))
-
-        # 起跑线检测
-        # self.line((STARTLINE_I1, STARTLINE_PADDING), (STARTLINE_I1, M - STARTLINE_PADDING), (255, 0, 0))
-        # self.line((STARTLINE_I2, STARTLINE_PADDING), (STARTLINE_I2, M - STARTLINE_PADDING), (255, 0, 0))
-
-        # 环岛
-        # self.PerShow.line((0, ROUND_MAXWIDTH), (N_, ROUND_MAXWIDTH))
-
     def sobel(self, i: int, j: int, lr: int = LRSTEP) -> int:
         "魔改的sobel算子"
         il = max(CUT, i - UDSTEP)
@@ -376,34 +349,60 @@ class ImgProcess:
         for i, (k, v) in enumerate(self.landmark.items()):
             self.PerShow.putText(k + ": " + str(v), (i * 5 + 100, 170))
 
+    def drawLines(self) -> None:
+        "画参考线"
+        # 最上面的舍弃行
+        self.SrcShow.line((CUT, 0), (CUT, M))
+
+        # 标尺
+        self.SrcShow.line((N - 5, 5), (N - 5, 15))
+        self.SrcShow.line((N - 5, 5), (N - 15, 5))
+        self.PerShow.line((N_ - 5, 5), (N_ - 5, 15))
+        self.PerShow.line((N_ - 5, 5), (N_ - 15, 5))
+
+        # 平移参照行X_POS
+        self.PerShow.line((X_POS + I_SHIFT, 0), (X_POS + I_SHIFT, M_))
+
+        # 前沿线范围
+        self.SrcShow.line((0, CORNERCUT), (N, 0))
+        self.SrcShow.line((0, M - CORNERCUT), (N, M))
+        self.SrcShow.line((FORKUPCUT, 0), (FORKUPCUT, M))
+        self.SrcShow.line((N - FORKDOWNCUT, 0), (N - FORKDOWNCUT, M))
+
+        # 起跑线检测
+        # self.line((STARTLINE_I1, STARTLINE_PADDING), (STARTLINE_I1, M - STARTLINE_PADDING), (255, 0, 0))
+        # self.line((STARTLINE_I2, STARTLINE_PADDING), (STARTLINE_I2, M - STARTLINE_PADDING), (255, 0, 0))
+
+        # 环岛
+        self.PerShow.line((0, ROUND_MAXWIDTH), (N_, ROUND_MAXWIDTH))
+
     def work(self):
         "图像处理的完整工作流程"
         self.drawLines()
         self.landmark["StartLine"] = self.checkStartLine(STARTLINE_I1) or self.checkStartLine(STARTLINE_I2)
-        self.getK()
+        self.getK(True)
 
         "入环"
-        isRight = True
-        if self.roundaboutGetCorner(isRight):
-            self.roundaboutGetInMid(isRight)
-            self.getTarget()
-            self.solve()
+        # isRight = True
+        # if self.roundaboutGetCorner(isRight):
+        #     self.roundaboutGetInMid(isRight)
+        #     self.getTarget()
+        #     self.solve()
 
         "出环"
         # isRight = True
-        # self.getK()
         # self.roundaboutGetOutMid(isRight)
         # self.getTarget()
         # self.solve()
 
         "正常"
-        # self.getEdge()
-        # self.landmark["Hill"] = self.hillChecker[0].check() and self.hillChecker[1].check() and self.hillChecker[0].calc() + self.hillChecker[1].calc() > HILL_DIFF
-        # self.landmark["Roundabout1"] = "None" if not self.roundaboutChecker.check() else "Right" if self.roundaboutChecker.side else "Left"
-        # self.landmark["Fork"] = self.frontForkChecker.res and (self.sideForkChecker[0].res or self.sideForkChecker[1].res)
-        # if self.getMid():
-        #     self.getTarget()
-        #     self.solve()
+        self.getEdge()
+        self.landmark["Hill"] = self.hillChecker[0].check() and self.hillChecker[1].check() and self.hillChecker[0].calc() + self.hillChecker[1].calc() > HILL_DIFF
+        self.landmark["Roundabout1"] = "None" if not self.roundaboutChecker.check() else "Right" if self.roundaboutChecker.side else "Left"
+        self.landmark["Fork"] = self.frontForkChecker.res and (self.sideForkChecker[0].res or self.sideForkChecker[1].res)
+        if self.getMid(True):
+            self.getTarget()
+            self.solve()
 
         self.PerShow.point((self.PI + I_SHIFT, self.PJ + J_SHIFT), r=6)
         self.showRes()
